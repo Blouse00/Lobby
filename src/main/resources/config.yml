@@ -1,0 +1,36 @@
+required-players: 2
+countdown-seconds: 30
+lobby-spawn:
+  world: 'world'
+  x: 1000
+  y: 100
+  z: 0
+  yaw: -140
+  pitch: 0
+games:
+  0:
+    game: 'Block break'
+    has-sub-lobby: false
+    max-players: 2
+    signs:
+      0:
+        world: 'World'
+        server: 'Game'
+        x: -40
+        y: 70
+        z: 174
+        ip: 0
+        port: 25566
+  1:
+    game: 'Sumo Spleef'
+    has-sub-lobby: true
+    max-players: 20
+    signs:
+      0:
+        world: 'World'
+        server: 'ArenaGame'
+        x: -39
+        y: 70
+        z: 174
+        ip: 0
+        port: 25568
