@@ -34,7 +34,7 @@ public class PortalManager {
     }
 
     // called when the sign needs to be updated
-    // called from the requestConsumer in the main lobby class when it receives a message from another server.
+   /* // called from the requestConsumer in the main lobby class when it receives a message from another server.
     public void updateSign() {
         // Game name + sign ID
         // Game state
@@ -70,7 +70,7 @@ public class PortalManager {
             signBlock.setLine(3, "");
             signBlock.update();
         }
-    }
+    }  */
 
     // return the sign location, server name, gameID, signID & isFull
     public  Location getSignLocation() {return sign;}

@@ -5,10 +5,12 @@ import com.gmail.tracebachi.SockExchange.Messages.ReceivedMessage;
 import com.gmail.tracebachi.SockExchange.Messages.ReceivedMessageNotifier;
 import com.gmail.tracebachi.SockExchange.Spigot.SockExchangeApi;
 import com.google.common.io.ByteArrayDataInput;
+import com.stewart.lobby.commands.LobbyCommand;
 import com.stewart.lobby.listeners.ConnectListener;
 import com.stewart.lobby.listeners.LobbyListener;
 import com.stewart.lobby.manager.ConfigManager;
 import com.stewart.lobby.manager.GameManager;
+import com.stewart.lobby.manager.LobbyManager;
 import com.stewart.lobby.manager.PortalManager;
 import net.minecraft.server.v1_8_R3.EntityInsentient;
 import net.minecraft.server.v1_8_R3.EntityTypes;
@@ -28,6 +30,8 @@ public final class Lobby extends JavaPlugin {
    // public PluginListener pluginListener;
 
     private GameManager gameManager;
+    private SockExchangeApi sockExchangeApi;
+    private LobbyManager lobbyManager;
 
     private ReceivedMessageNotifier messageNotifier;
 
@@ -38,10 +42,11 @@ public final class Lobby extends JavaPlugin {
 
         // game manager gets 'game' instances for each game server connected to the lobby
         gameManager = new GameManager(this);
+        lobbyManager = new LobbyManager(this);
 
         Bukkit.getWorld("world").setDifficulty(Difficulty.PEACEFUL);
 
-
+        Bukkit.getWorld("world").setStorm(false);
         // Need this to be able to move players to another server
         this.getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
 
@@ -51,20 +56,49 @@ public final class Lobby extends JavaPlugin {
         // the listener for players clicking on a sign
         Bukkit.getPluginManager().registerEvents(new LobbyListener(this), this);
 
+        // register the pw command class
+        getCommand("pw").setExecutor(new LobbyCommand(this));
+
         // this is used to get messages from the game server for the purrpose of updating the sign posts
-        SockExchangeApi api = SockExchangeApi.instance();
+        sockExchangeApi = SockExchangeApi.instance();
 
         // Get the request notifier which will run a provided Consumer when
         // there is a new message on a specific channel
-        messageNotifier = api.getMessageNotifier();
+        messageNotifier = sockExchangeApi.getMessageNotifier();
 
-        // on server start (1 sec delay) loop through all signs, and check if server is online.
+     /*   // on server start (1 sec delay) loop through all signs, and check if server is online.
         Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
             @Override
             public void run() {
-                gameManager.checkGamesOnline(api);
+                gameManager.checkGamesOnline(sockExchangeApi);
             }
-        }, 20L);
+        }, 20L); */
+
+        //  this is fired when this server receives a 'Sockexchange' message from another server.
+        // the message is in the format 0-0-0-0
+        // bedwars sends a message when the server starts, each time a new player joins/leaves and when the game
+        // starts (no longer recruiting)
+        Consumer<ReceivedMessage> requestConsumer = rm -> {
+            try{
+                ByteArrayDataInput in = rm.getDataInput();
+                String s = in.readLine();
+                System.out.println("SockExchange message received " + s);
+                // s will be the message
+                String[] arrReceived = s.split("\\.");
+                // sock name _ report-status _ game name _ state (all caps) _ current players _  max players.
+                if (arrReceived[1].equals("report-status")) {
+                    gameManager.updateGameServer(arrReceived[0], arrReceived[2], arrReceived[3],
+                            Integer.parseInt(arrReceived[4]), Integer.parseInt(arrReceived[5]),
+                            Integer.parseInt((arrReceived[6])));
+                }
+            }catch(Exception ex){
+                System.out.println("Sock exchange received message error");
+                ex.printStackTrace();
+            }
+        };
+
+        /* original one before  new queue
+
 
         //  this is fired when this server receives a 'Sockexchange' message from another server.
         // the message is in the format 0-0-0-0
@@ -93,6 +127,8 @@ public final class Lobby extends JavaPlugin {
                 ex.printStackTrace();
             }
         };
+
+         */
         // this registers the listener for messages from other servers
         messageNotifier.register("LobbyChannel", requestConsumer);
 
@@ -100,6 +136,10 @@ public final class Lobby extends JavaPlugin {
 
     // returns the game manager instance
     public  GameManager getGameManager() {return gameManager;}
+
+    public  LobbyManager getLobbyManager() {return lobbyManager;}
+
+    public SockExchangeApi getSockExchangeApi () {return sockExchangeApi;}
 
     @Override
     public void onDisable() {

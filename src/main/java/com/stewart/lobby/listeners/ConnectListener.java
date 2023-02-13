@@ -8,6 +8,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+
+import java.util.UUID;
 
 
 public class ConnectListener implements Listener {
@@ -21,10 +24,15 @@ public class ConnectListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         Player player = e.getPlayer();
-        player.getInventory().clear();
-        player.setGameMode(GameMode.SURVIVAL);
-        Location location = ConfigManager.getLobbySpawn();
-        player.teleport(location);
+        lobby.getLobbyManager().playerJoined(player);
+
+    }
+
+    // when a player joins the server tp them to the main spawn location.
+    @EventHandler
+    public void onLeave(PlayerQuitEvent e) {
+        UUID uuid = e.getPlayer().getUniqueId();
+        lobby.getGameManager().removePlayerFromQueues(uuid, null);
     }
 
 }

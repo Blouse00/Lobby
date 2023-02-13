@@ -3,18 +3,36 @@ package com.stewart.lobby.listeners;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import com.stewart.lobby.Lobby;
+import com.stewart.lobby.instances.Game;
 import com.stewart.lobby.manager.PortalManager;
+import net.citizensnpcs.api.event.NPCRightClickEvent;
+import net.citizensnpcs.api.npc.NPC;
+import net.minecraft.server.v1_8_R3.IChatBaseComponent;
+import net.minecraft.server.v1_8_R3.PacketPlayOutTitle;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_8_R3.entity.CraftTNTPrimed;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.weather.ThunderChangeEvent;
+import org.bukkit.event.weather.WeatherChangeEvent;
 
 import java.io.IOException;
+import java.util.UUID;
 
 
 // event for when player clicks on a sign
@@ -27,34 +45,92 @@ public class LobbyListener implements Listener {
     }
 
     @EventHandler
-    public void onSignClick(PlayerInteractEvent e) {
-
-        if (e.hasBlock()  && e.getClickedBlock().getType().equals(Material.WALL_SIGN)) {
-            PortalManager sign = lobby.getGameManager().getSignPost(e.getClickedBlock().getLocation());
-            if (sign != null) {
-                // They have clicked on a sign
-                // check the game state is recruiting
-                if (sign.getIsFull() == false) {
-                    try {
-                        ByteArrayDataOutput out = ByteStreams.newDataOutput();
-                        out.writeUTF("Connect");
-                        // get server name from the sign
-                        out.writeUTF(sign.getServerName());
-                        // teleport the player to the game server, this is done via the bungeecord channel
-                        e.getPlayer().sendPluginMessage(lobby, "BungeeCord", out.toByteArray());
-                    } catch (Exception ex) {
-                        e.getPlayer().sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
-                    }
-                }
-            }
-        }
+    public void onClick (InventoryClickEvent e) {
+        System.out.println("inv click");
+        e.setCancelled(true);
     }
+
+
 
     // prevent any blocks being broken
     @EventHandler
     public void onBlockBreak(BlockBreakEvent e) throws IOException {
         // no block break
         e.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onLobbyCLick(PlayerInteractEvent e) {
+        Player player = e.getPlayer();
+
+        int slot = player.getInventory().getHeldItemSlot();
+        System.out.println("Slot " + slot + " clicked");
+        if (slot == 8) {
+            // player leave the game (compass)
+            lobby.getLobbyManager().teleportToParkour(player);
+        } else {
+            lobby.getGameManager().hotbarItemClicked(player, slot);
+        }
+    }
+
+    @EventHandler
+    public void damage(EntityDamageEvent event) //Listens to EntityDamageEvent
+    {
+
+        System.out.println("Damage type = " + event.getCause().toString());
+
+            // each time a player damages a player I need to log who damaged who in a hashmap in the arena
+            // this allows me to determine who killed a player in the EntityDamageEntity event above.
+            if (event.getEntity() instanceof Player ) {
+                Player damaged =  (Player) event.getEntity();
+
+                // check if the player is currently spawn protected.
+                if (lobby.getLobbyManager().playerSpawnProtected(damaged)) {
+                    event.setCancelled(true);
+                    return;
+                }
+
+                    CheckPlayerDies(damaged, event);
+
+                if (event instanceof EntityDamageByEntityEvent) {
+
+                    System.out.println("Entity damage entity event");
+                    EntityDamageByEntityEvent ev = (EntityDamageByEntityEvent) event;
+                    System.out.println("Damager = " + ev.getDamager().toString());
+                    // damaged by an entity
+                    // each time a player damages a player I need to log who damaged who in a hashmap in the arena
+                    // this allows me to determine who killed a player in the EntityDamageEntity event above.
+                    if (ev.getEntity() instanceof Player && ev.getDamager() instanceof Player) {
+                        Player damager = (Player) ev.getDamager();
+                        // make sure the damager is no longer spawn protected.
+                        lobby.getLobbyManager().removeSpawnProtect(damager);
+                    }
+                }
+                return;
+            }
+
+    }
+
+    private void CheckPlayerDies(Player player, EntityDamageEvent ev) {
+        System.out.println("Check player dies fired damage = " + ev.getFinalDamage());
+        System.out.println("player health = " + player.getHealth());
+        if (player.getHealth() - ev.getFinalDamage() <= 0) {
+            System.out.println("Player would have died");
+            // cancel death
+            ev.setCancelled(true);
+
+            // bring the player back to 'life'
+            player.setHealth(20.0);
+            player.setFoodLevel(20);
+            // handles checking if game won etc & respawning 'killed' player.
+            // damager may be null
+            lobby.getLobbyManager().playerKilled(player);
+            if (player != null) {
+                PacketPlayOutTitle title = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.TITLE,
+                        IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + "§4" + "You died!" + "\"}"), 3, 150, 50);
+                ((CraftPlayer) Bukkit.getPlayer(player.getUniqueId())).getHandle().playerConnection.sendPacket(title);
+            }
+        }
     }
 
     // prevent any blocks being placed
@@ -75,6 +151,36 @@ public class LobbyListener implements Listener {
     // prevent player dropping things with q button
     @EventHandler
     public void onPlayerDropItem(PlayerDropItemEvent event){
+            event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onRightClick(NPCRightClickEvent event){
+        NPC npc = event.getNPC();
+        Player player = event.getClicker();
+        System.out.println("Npc clicked: " + npc.getName());
+        Game game= lobby.getGameManager().getGameByNpcName(npc.getName());
+        if (game == null) {
+            player.sendMessage("Game server not found, please try again later.");
+        } else {
+            System.out.println("Game found : " +game.getGameName());
+            game.playerJoinRequest(player);
+        }
+    }
+
+    @EventHandler(priority= EventPriority.HIGHEST)
+    public void onWeatherChange(WeatherChangeEvent event) {
+
+        boolean rain = event.toWeatherState();
+        if(rain)
+            event.setCancelled(true);
+    }
+
+    @EventHandler(priority=EventPriority.HIGHEST)
+    public void onThunderChange(ThunderChangeEvent event) {
+
+        boolean storm = event.toThunderState();
+        if(storm)
             event.setCancelled(true);
     }
 

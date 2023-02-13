@@ -25,4 +25,14 @@ public class ConfigManager {
                 (float) config.getDouble("lobby-spawn.pitch"));
     }
 
+    public  static Location getParkourSpawn() {
+        return new Location(
+                Bukkit.getWorld(config.getString("lobby-spawn.world")),
+                config.getDouble("parkour.x"),
+                config.getDouble("parkour.y"),
+                config.getDouble("parkour.z"),
+                (float) config.getDouble("parkour.yaw"),
+                (float) config.getDouble("parkour.pitch"));
+    }
+
 }
