@@ -5,6 +5,7 @@ import com.google.common.io.ByteStreams;
 import com.stewart.lobby.Lobby;
 import com.stewart.lobby.instances.Game;
 import com.stewart.lobby.manager.PortalManager;
+import com.stewart.lobby.utils.GameInventory;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
 import net.citizensnpcs.api.npc.NPC;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
@@ -19,6 +20,7 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
@@ -46,8 +48,22 @@ public class LobbyListener implements Listener {
 
     @EventHandler
     public void onClick (InventoryClickEvent e) {
-        System.out.println("inv click");
+
         e.setCancelled(true);
+        if (e.getClickedInventory() == null) {
+            System.out.println("Clicked inventory is null");
+            return;
+        }
+            //  System.out.println("inv click");
+            // below here fires the item click event I've moved to the shopentites class for each of the different shop types
+            if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
+                    .equals("" + ChatColor.DARK_GRAY + ChatColor.BOLD + "JOIN A GAME.") &&
+                    e.getCurrentItem() != null) {
+
+                Player player = (Player) e.getWhoClicked();
+                // the shop click function handles what to do depending on the slot that was clicked
+                lobby.getGameManager().gameChosenFromInventory(player, e.getRawSlot());
+            }
     }
 
 
@@ -63,13 +79,28 @@ public class LobbyListener implements Listener {
     public void onLobbyCLick(PlayerInteractEvent e) {
         Player player = e.getPlayer();
 
-        int slot = player.getInventory().getHeldItemSlot();
-        System.out.println("Slot " + slot + " clicked");
-        if (slot == 8) {
+        Action action = e.getAction();
+
+        if (action == Action.RIGHT_CLICK_BLOCK || action == Action.RIGHT_CLICK_AIR) {
+
+            int slot = player.getInventory().getHeldItemSlot();
+            System.out.println("Slot " + slot + " clicked");
+      /*  if (slot == 8) {
             // player leave the game (compass)
             lobby.getLobbyManager().teleportToParkour(player);
         } else {
             lobby.getGameManager().hotbarItemClicked(player, slot);
+        } */
+            if (slot == 0) {
+                // open game type inventory
+                GameInventory gameInventory = new GameInventory(lobby);
+                player.openInventory(gameInventory.getGameInventory(player));
+                //   lobby.getLobbyManager().teleportToParkour(player);
+            }
+            if (slot == 8) {
+                // teleport player to parkour
+                lobby.getLobbyManager().teleportToParkour(player);
+            }
         }
     }
 

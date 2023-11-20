@@ -11,11 +11,13 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
+import org.stewart.bb_api.Bb_api;
 
 import java.util.HashMap;
 import java.util.UUID;
 
 public class LobbyManager {
+
 
     private final Lobby main;
     private final int feetBlockY;
@@ -82,6 +84,8 @@ public class LobbyManager {
     }
 
     public void playerJoined(Player player) {
+
+
         player.getInventory().clear();
         player.setGameMode(GameMode.SURVIVAL);
         Location location = ConfigManager.getLobbySpawn();
@@ -97,10 +101,14 @@ public class LobbyManager {
         ism.setDisplayName(ChatColor.BLUE+ "Go to lobby parkour");
         compass.setItemMeta(ism);
         player.getInventory().setItem(8,compass);
-        // add a hotbar item for each game (a wool block with the games colour and name set)
-        main.getGameManager().addGameHotbarItems(player);
-
-        // give them spawn protection
+        // give them netherStar to open game join inventory
+        ItemStack netherStar = new ItemStack(Material.NETHER_STAR);
+        ItemMeta netherStarMeta = netherStar.getItemMeta();
+        netherStarMeta.setDisplayName(ChatColor.BLUE+ "Choose a game type");
+        netherStar.setItemMeta(netherStarMeta);
+        player.getInventory().setItem(0,netherStar);
+        // set active hotbar slot to middle
+        player.getInventory().setHeldItemSlot(4);
 
         // after 2 seconds check & adjust their y coordinate
         Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> {
@@ -154,11 +162,15 @@ public class LobbyManager {
                     } else {
                         System.out.println("player is null, cancelling particles");
                         particleIterator = 0;
-                        particleTask.cancel();
+                        if (particleTask != null) {
+                            particleTask.cancel();
+                        }
                     }
                 } else {
                     // If "i" is zero, we cancel the task.
-                    particleTask.cancel();
+                    if (particleTask != null) {
+                        particleTask.cancel();
+                    }
                 }
             }, 0, 1);
         }

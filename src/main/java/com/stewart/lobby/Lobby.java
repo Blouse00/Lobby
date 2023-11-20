@@ -11,27 +11,19 @@ import com.stewart.lobby.listeners.LobbyListener;
 import com.stewart.lobby.manager.ConfigManager;
 import com.stewart.lobby.manager.GameManager;
 import com.stewart.lobby.manager.LobbyManager;
-import com.stewart.lobby.manager.PortalManager;
-import net.minecraft.server.v1_8_R3.EntityInsentient;
-import net.minecraft.server.v1_8_R3.EntityTypes;
 import org.bukkit.Bukkit;
 import org.bukkit.Difficulty;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import org.stewart.bb_api.Bb_api;
 import java.util.function.Consumer;
 
 public final class Lobby extends JavaPlugin {
 
-   // public PluginListener pluginListener;
-
     private GameManager gameManager;
     private SockExchangeApi sockExchangeApi;
     private LobbyManager lobbyManager;
+
+    private Bb_api bb_api = (Bb_api) Bukkit.getServer().getPluginManager().getPlugin("bb_api");
 
     private ReceivedMessageNotifier messageNotifier;
 
@@ -40,11 +32,34 @@ public final class Lobby extends JavaPlugin {
         // load the config file
         ConfigManager.setupConfig(this);
 
+        if (bb_api == null) {
+            System.out.println("---------------------------------------------API IS NULL------------------------");
+        }
+
+    //   List<GameLeaderboards> lb = bb_api.leaderboardManager.getGameLeaderBoards("ac_");
+
+       /* for (GameLeaderboards lead : lb) {
+            System.out.println("Name " + lead.getGameName());
+            if (lead.GetListLeaderboard().size()  > 0) {
+                System.out.printf("first " + lead.GetListLeaderboard().get(0).playerName + " " + lead.GetListLeaderboard().get(0).score);
+                if (lead.GetListLeaderboard().size()  > 1) {
+                    System.out.printf("2nd " + lead.GetListLeaderboard().get(1).playerName + " " + lead.GetListLeaderboard().get(1).score);
+                    if (lead.GetListLeaderboard().size()  > 2) {
+                        System.out.printf("3d " + lead.GetListLeaderboard().get(2).playerName + " " + lead.GetListLeaderboard().get(2).score);
+                    }
+                }
+            }
+        }*/
+
+       // Bb_api bb_api = new Bb_api();
+
         // game manager gets 'game' instances for each game server connected to the lobby
         gameManager = new GameManager(this);
         lobbyManager = new LobbyManager(this);
 
         Bukkit.getWorld("world").setDifficulty(Difficulty.PEACEFUL);
+
+        System.out.printf("11111111111");
 
         Bukkit.getWorld("world").setStorm(false);
         // Need this to be able to move players to another server
@@ -56,15 +71,23 @@ public final class Lobby extends JavaPlugin {
         // the listener for players clicking on a sign
         Bukkit.getPluginManager().registerEvents(new LobbyListener(this), this);
 
+        System.out.printf("22222222222222");
+
         // register the pw command class
         getCommand("pw").setExecutor(new LobbyCommand(this));
+
+        System.out.printf("33333333333333");
 
         // this is used to get messages from the game server for the purrpose of updating the sign posts
         sockExchangeApi = SockExchangeApi.instance();
 
+        System.out.printf("444444444444444");
+
         // Get the request notifier which will run a provided Consumer when
         // there is a new message on a specific channel
         messageNotifier = sockExchangeApi.getMessageNotifier();
+
+        System.out.printf("5555555555555555");
 
      /*   // on server start (1 sec delay) loop through all signs, and check if server is online.
         Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
@@ -85,11 +108,17 @@ public final class Lobby extends JavaPlugin {
                 System.out.println("SockExchange message received " + s);
                 // s will be the message
                 String[] arrReceived = s.split("\\.");
-                // sock name _ report-status _ game name _ state (all caps) _ current players _  max players.
-                if (arrReceived[1].equals("report-status")) {
-                    gameManager.updateGameServer(arrReceived[0], arrReceived[2], arrReceived[3],
-                            Integer.parseInt(arrReceived[4]), Integer.parseInt(arrReceived[5]),
-                            Integer.parseInt((arrReceived[6])));
+                // sock name . report-status . state (all caps) . current players .  max players . team size.
+                if (arrReceived[1].equals("report-status") ) {
+                    // sock name for bedwars will be eg bedwars_0, bedwars_1
+                    if (arrReceived[0].toLowerCase().contains("bedwars")) {
+                        gameManager.updateBedwarsGameServer(arrReceived[0],  arrReceived[2],
+                                Integer.parseInt(arrReceived[3]), Integer.parseInt((arrReceived[5])));
+                    } else {
+                        gameManager.updateGameServer(arrReceived[0],  arrReceived[2],
+                                Integer.parseInt(arrReceived[3]), Integer.parseInt((arrReceived[4])));
+                    }
+
                 }
             }catch(Exception ex){
                 System.out.println("Sock exchange received message error");
@@ -146,5 +175,7 @@ public final class Lobby extends JavaPlugin {
         // Plugin shutdown logic
        // messageNotifier.unregister("LobbyChannel", requestConsumer);
     }
+
+    public Bb_api getBb_api() {return bb_api;}
 
 }

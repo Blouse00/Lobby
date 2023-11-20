@@ -1,7 +1,7 @@
 name: Lobby
 version: '${project.version}'
 main: com.stewart.lobby.Lobby
-depend: [Citizens]
+depend: [Citizens, bb_api]
 depends: [PartyAndFriends]
 commands:
   pw:

@@ -25,6 +25,7 @@ public class ConnectListener implements Listener {
     public void onJoin(PlayerJoinEvent e) {
         Player player = e.getPlayer();
         lobby.getLobbyManager().playerJoined(player);
+        e.setJoinMessage("");
 
     }
 
@@ -33,6 +34,7 @@ public class ConnectListener implements Listener {
     public void onLeave(PlayerQuitEvent e) {
         UUID uuid = e.getPlayer().getUniqueId();
         lobby.getGameManager().removePlayerFromQueues(uuid, null);
+        e.setQuitMessage("");
     }
 
 }
