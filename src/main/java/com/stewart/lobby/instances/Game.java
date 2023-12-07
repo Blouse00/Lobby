@@ -40,7 +40,7 @@ public class Game {
     private String texture;
     private String signature;
     private String nameColour;
-    private int gameColourInt;
+    private Material material;
     private int inventorySlot;
 
  //   private org.bukkit.inventory.ItemStack gameItem;
@@ -49,7 +49,7 @@ public class Game {
   //  private EntityPlayer npc;
 
     public Game(Lobby lobby,  String name, Location npcSpawnLocation, String texture, String signature,
-                String nameColour, int gameColourInt, int inventorySlot) {
+                String nameColour, Material material, int inventorySlot) {
         this.isBlocked = false;
       //  this.gameItem = gameItem;
         this.name = name;
@@ -58,7 +58,7 @@ public class Game {
         this.texture = texture;
         this.signature = signature;
         this.nameColour = nameColour;
-        this.gameColourInt = gameColourInt;
+        this.material = material;
         this.inventorySlot = inventorySlot;
     }
 
@@ -98,10 +98,15 @@ public class Game {
     // also form checking queue
     public void playerJoinRequest(Player player) {
 
+     /*   if(playersInQueue.containsKey(player.getUniqueId())) {
+            player.sendMessage("You are already in the queue for this game!");
+            return;
+        }*/
+
         if (this.isBlocked) {
             // in the process of sending a player, wait till that's complete
             System.out.println("game is blocked, adding player to queue");
-            addPlayerToQueue(player);
+            addPlayerToQueue(player, false);
         } else {
             // player requested to join game
             if (this.name.contains("Bedwars_")) {
@@ -114,6 +119,7 @@ public class Game {
                 if (!serverList.isEmpty() && serverList.size() > 0) {
                     try {
                         System.out.println("Sending player to server");
+
                         ByteArrayDataOutput out = ByteStreams.newDataOutput();
                         out.writeUTF("Connect");
                         // get server name from the sign
@@ -126,7 +132,7 @@ public class Game {
                 }
                 return;
             }
-            if (serverList.size() == 0) {
+            if (serverList.isEmpty()) {
                     System.out.println("player tried to join game but no servers found");
                     player.sendMessage("No game servers found, please try again later.");
                 } else {
@@ -144,9 +150,9 @@ public class Game {
                         }
                     }
                     System.out.println( lstAvailable.size() + " possible server(s) found");
-                    if (lstAvailable.size() == 0) {
+                    if (lstAvailable.isEmpty()) {
                         // no servers are recruiting, put the player in the queue.
-                        addPlayerToQueue(player);
+                        addPlayerToQueue(player, true);
                         System.out.println("Servers all busy, adding player to queue");
                     } else {
                         // loop through possible servers & send player to the fullest
@@ -170,6 +176,7 @@ public class Game {
                             out.writeUTF(sockNameMostPlayers);
                             // teleport the player to the game server, this is done via the bungeecord channel
                             player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
+
                         } catch (Exception ex) {
                             player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
                         }
@@ -221,10 +228,13 @@ public class Game {
         if (serverSockName == null) {
             System.out.println("No servers set up for " + this.getGameName());
             // see if there are idle servers (teamSize = 0) we can set for our use.
-            addPlayerToQueue(player);
             serverSockName = manager.getSocknameOfIdleBedwarsServer();
             if (serverSockName != "") {
                 manager.setBedwarsServerToTeamSize(serverSockName, teamSize);
+                // do not give the you have been added to the queue message as they should get there pretty quick
+                addPlayerToQueue(player, false);
+            } else {
+                addPlayerToQueue(player, true);
             }
 
         } else {
@@ -235,7 +245,7 @@ public class Game {
 
     private void SendPlayerToServer(Player player, String sockName, PlayerParty party) {
         try {
-            System.out.println("Sending player to server");
+            System.out.println("Sending player to server 2");
             ByteArrayDataOutput out = ByteStreams.newDataOutput();
             out.writeUTF("Connect");
             // get server name from the sign
@@ -277,10 +287,17 @@ public class Game {
         }
     }  */
 
-    public void addPlayerToQueue(Player player) {
+    public void addPlayerToQueue(Player player, boolean sendMessage) {
         if (!playersInQueue.containsKey(player.getUniqueId())) {
+            // remove player from all other queues first;
+            main.getGameManager().removePlayerFromQueues(player.getUniqueId(), null);
             playersInQueue.put(player.getUniqueId(), new Timestamp(System.currentTimeMillis()));
-            player.sendMessage("Servers are busy, you have been added to the queue.");
+            if (sendMessage) {
+                player.sendMessage("Servers are busy, you have been added to the queue.");
+                System.out.println("------------------------------------------------SHOWED MESSAGE-----------------------");
+            } else {
+                System.out.println("------------------------------------------------NO MESSAGE-----------------------");
+            }
         } else {
             System.out.println("Player already in queue");
         }
@@ -290,25 +307,9 @@ public class Game {
     public void checkQueue() {
 
         System.out.println("Checking game queue for " + name);
-      /*  System.out.println("Party player queue size: " + partyPlayerQueue.size());
-        if (partyPlayerQueue.size() > 0) {
-            Map.Entry<UUID, String> entry = partyPlayerQueue.entrySet().stream().findFirst().get();
-            UUID uuid = entry.getKey();
-            if (Bukkit.getServer().getPlayer(uuid) != null) {
-                System.out.println("Player in party queue is on server, sending them to game");
-                SendPlayerToServer(Bukkit.getPlayer(uuid), entry.getValue(), null);
-                partyPlayerQueue.remove(uuid);
-                // do not continue this function.
-                return;
-            } else {
-                System.out.println("Player in party queue is not on server removing from list & doing checkQueue again");
-                partyPlayerQueue.remove(uuid);
-                checkQueue();
-            }
-        } */
 
         System.out.println("players in the queue = " + playersInQueue.size());
-        if (playersInQueue.size() > 0) {
+        if (!playersInQueue.isEmpty()) {
             // pick the first person in the queue and check that they exist on the server,
             Timestamp ts = new Timestamp(System.currentTimeMillis());
             UUID uuidFirst = null;
@@ -415,10 +416,12 @@ public class Game {
     // return max players for the game, again for the sign.
     public int getmaxPlayers() {return maxPlayers;}
 
-    public int getGameColourInt() {return gameColourInt;}
+    public Material getMaterial() {return material;}
 
     public int getInventorySlot() {return inventorySlot;}
 
     public int getQueueSize() {return playersInQueue.size();}
+
+    public boolean isPlayerInQueue(UUID uuid) {return playersInQueue.containsKey(uuid);}
 
 }

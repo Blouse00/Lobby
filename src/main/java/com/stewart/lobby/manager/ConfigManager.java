@@ -5,6 +5,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 
+import java.util.List;
+
 // simple config manager all it does is get the server spawn location from the config file
 public class ConfigManager {
 
@@ -24,6 +26,54 @@ public class ConfigManager {
                 (float) config.getDouble("lobby-spawn.yaw"),
                 (float) config.getDouble("lobby-spawn.pitch"));
     }
+
+    public  static Location getRulesSpawn() {
+        return new Location(
+                Bukkit.getWorld(config.getString("rules-spawn.world")),
+                config.getDouble("rules-spawn.x"),
+                config.getDouble("rules-spawn.y"),
+                config.getDouble("rules-spawn.z"),
+                (float) config.getDouble("rules-spawn.yaw"),
+                (float) config.getDouble("rules-spawn.pitch"));
+    }
+
+    public  static Location getRulesNPCSpawn() {
+        return new Location(
+                Bukkit.getWorld(config.getString("rulesNPC-spawn.world")),
+                config.getDouble("rulesNPC-spawn.x"),
+                config.getDouble("rulesNPC-spawn.y"),
+                config.getDouble("rulesNPC-spawn.z"),
+                (float) config.getDouble("rulesNPC-spawn.yaw"),
+                (float) config.getDouble("rulesNPC-spawn.pitch"));
+    }
+
+    public  static int getRulesInterval() {
+        return config.getInt("rules-interval");
+    }
+
+    public static List<String> getRules() {
+        List<String> test1 = config.getStringList("rules");
+        return test1;
+    }
+
+    public static List<String> getPreRules() {
+        List<String> test1 = config.getStringList("rules-pre");
+        return test1;
+    }
+
+    public  static String getRulesSkinTexture() {
+        return config.getString("rules-npc-texture");
+    }
+
+    public  static String getRulesSkinSignature() {
+        return config.getString("rules-npc-signature");
+    }
+
+    public static List<String> getPostRules() {
+        List<String> test1 = config.getStringList("rules-post");
+        return test1;
+    }
+
 
     public  static Location getParkourSpawn() {
         return new Location(

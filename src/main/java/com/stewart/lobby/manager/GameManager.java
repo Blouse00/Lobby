@@ -72,10 +72,10 @@ public class GameManager {
             String texture = gameConfig.getString( s + ".npc-skin-texture");
             String signature = gameConfig.getString( s + ".npc-skin-signature");
             String nameColour = gameConfig.getString(s + ".npc-name-colour");
-            int gameColour = -1;
+            Material material = Material.DIAMOND_BLOCK;
             int inventorySocket = -1;
             if (gameConfig.contains(s + ".npc-name-colour")) {
-                gameColour = gameConfig.getInt( s + ".colour-int");
+                material = Material.getMaterial(gameConfig.getString( s + ".material"));
                 inventorySocket = gameConfig.getInt( s + ".inventory-slot");
             }
 
@@ -86,7 +86,7 @@ public class GameManager {
                     (float) gameConfig.getDouble(s + ".npc-yaw"),
                     (float) gameConfig.getDouble(s + ".npc-pitch"));
 
-            Game game   = new Game(main, gameName, location, texture, signature, nameColour, gameColour, inventorySocket );
+            Game game   = new Game(main, gameName, location, texture, signature, nameColour, material, inventorySocket );
             game.spawnNPC();
             gameList.add(game);
 
@@ -132,10 +132,10 @@ public class GameManager {
             String texture = gameConfig.getString("bedwars" + "." + s + ".npc-skin-texture");
             String signature = gameConfig.getString("bedwars" + "." + s + ".npc-skin-signature");
             String nameColour = gameConfig.getString("bedwars" + "." + s + ".npc-name-colour");
-            int gameColour = -1;
+            Material material = Material.DIAMOND_BLOCK;
             int inventorySocket = -1;
             if (gameConfig.contains("bedwars" + "." + s + ".npc-name-colour")) {
-                gameColour = gameConfig.getInt("bedwars" + "." + s + ".colour-int");
+                material = Material.getMaterial(gameConfig.getString("bedwars" + "." + s + ".material"));
                 inventorySocket = gameConfig.getInt("bedwars" + "." + s + ".inventory-slot");
             }
 
@@ -146,7 +146,7 @@ public class GameManager {
                     (float) gameConfig.getDouble("bedwars" + "." + s + ".npc-yaw"),
                     (float) gameConfig.getDouble("bedwars" + "." + s + ".npc-pitch"));
 
-            Game game = new Game(main, gameName, location, texture, signature, nameColour, gameColour, inventorySocket);
+            Game game = new Game(main, gameName, location, texture, signature, nameColour, material, inventorySocket);
             game.spawnNPC();
             gameList.add(game);
         }
@@ -355,8 +355,10 @@ public class GameManager {
     // remove player from all game queues except the one passed
     public void removePlayerFromQueues(UUID uuid, Game gameKeep) {
         for (Game game :gameList) {
-          //  System.out.println("game name: " + game.getGameName());
           //  System.out.println("remove from queue start, size: " + game.getQueueSize());
+            if (game.isPlayerInQueue(uuid)) {
+                System.out.println("removing player from queue for " + game.getGameName());
+            }
             if (gameKeep == null) {
                 game.removePlayerFromQueue(uuid);
             } else {
@@ -399,7 +401,11 @@ public class GameManager {
         for (Game game : gameList) {
             if (game.getInventorySlot() == slot) {
                 player.closeInventory();
-                game.playerJoinRequest(player);
+                if (game.isPlayerInQueue(player.getUniqueId())) {
+                    player.sendMessage("You are already in the queue for this game!");
+                } else {
+                    game.playerJoinRequest(player);
+                }
                 return;
             }
         }

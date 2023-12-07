@@ -96,13 +96,13 @@ public class LobbyManager {
         player.getInventory().setLeggings(null);
         player.getInventory().setBoots(null);
         // give them compass for teleport to parkour
-        ItemStack compass = new ItemStack(Material.COMPASS);
+        ItemStack compass = new ItemStack(Material.STONE_SLAB2);
         ItemMeta ism = compass.getItemMeta();
         ism.setDisplayName(ChatColor.BLUE+ "Go to lobby parkour");
         compass.setItemMeta(ism);
         player.getInventory().setItem(8,compass);
         // give them netherStar to open game join inventory
-        ItemStack netherStar = new ItemStack(Material.NETHER_STAR);
+        ItemStack netherStar = new ItemStack(Material.COMPASS);
         ItemMeta netherStarMeta = netherStar.getItemMeta();
         netherStarMeta.setDisplayName(ChatColor.BLUE+ "Choose a game type");
         netherStar.setItemMeta(netherStarMeta);

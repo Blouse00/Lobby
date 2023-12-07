@@ -6,6 +6,8 @@ import com.stewart.lobby.Lobby;
 import com.stewart.lobby.instances.Game;
 import com.stewart.lobby.manager.PortalManager;
 import com.stewart.lobby.utils.GameInventory;
+import com.stewart.lobby.utils.RulesInventory;
+import net.citizensnpcs.api.event.NPCLeftClickEvent;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
 import net.citizensnpcs.api.npc.NPC;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
@@ -27,9 +29,7 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.player.PlayerDropItemEvent;
-import org.bukkit.event.player.PlayerInteractAtEntityEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.event.weather.ThunderChangeEvent;
 import org.bukkit.event.weather.WeatherChangeEvent;
 
@@ -63,10 +63,53 @@ public class LobbyListener implements Listener {
                 Player player = (Player) e.getWhoClicked();
                 // the shop click function handles what to do depending on the slot that was clicked
                 lobby.getGameManager().gameChosenFromInventory(player, e.getRawSlot());
+            } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
+                    .equals("" + ChatColor.DARK_GRAY + ChatColor.BOLD + "ACCEPT THE RULES.") &&
+                    e.getCurrentItem() != null) {
+
+                Player player = (Player) e.getWhoClicked();
+
+                if (e.getRawSlot() == 20) {
+                    System.out.printf("rules not accepted :(");
+                    // rules not accepted
+                    player.closeInventory();
+                    player.sendMessage( ChatColor.RED + "You must accept the rules before joining this server!");
+                }
+                if (e.getRawSlot() == 24) {
+                    System.out.printf("rules accepted :)");
+                    // rules accepted
+                    player.sendMessage( ChatColor.GREEN + "Thank you for accepting the rules, we hope you enjoy our server!");
+                    lobby.getBb_api().getPlayerManager().logRulesAccepted(player.getUniqueId());
+                    lobby.getRuleLobbyManager().removePlayer(player.getUniqueId());
+                    lobby.getLobbyManager().playerJoined(player);
+                }
+
             }
     }
 
+    @EventHandler
+    public void Chat(AsyncPlayerChatEvent event) {
+        System.out.printf("player chatevent fired");
+        Player player = event.getPlayer();
+        if (lobby.getRuleLobbyManager().containsPlayer(player.getUniqueId())) {
+            System.out.printf("cancel chat");
+            player.sendMessage(ChatColor.RED + " The rules must be accepted before you can chat");
+            player.sendMessage(ChatColor.GOLD + " Click the judge to accept the rules");
+            event.setCancelled(true);
+        }
+    }
 
+    @EventHandler
+    public void Chat(PlayerCommandPreprocessEvent event) {
+        System.out.printf("player command fired");
+        Player player = event.getPlayer();
+        if (lobby.getRuleLobbyManager().containsPlayer(player.getUniqueId())) {
+            System.out.println("cancel command");
+            player.sendMessage(ChatColor.RED + " The rules must be accepted before you can use commands");
+            player.sendMessage(ChatColor.GOLD + " Click the judge to accept the rules");
+            event.setCancelled(true);
+        }
+    }
 
     // prevent any blocks being broken
     @EventHandler
@@ -85,17 +128,10 @@ public class LobbyListener implements Listener {
 
             int slot = player.getInventory().getHeldItemSlot();
             System.out.println("Slot " + slot + " clicked");
-      /*  if (slot == 8) {
-            // player leave the game (compass)
-            lobby.getLobbyManager().teleportToParkour(player);
-        } else {
-            lobby.getGameManager().hotbarItemClicked(player, slot);
-        } */
             if (slot == 0) {
                 // open game type inventory
                 GameInventory gameInventory = new GameInventory(lobby);
                 player.openInventory(gameInventory.getGameInventory(player));
-                //   lobby.getLobbyManager().teleportToParkour(player);
             }
             if (slot == 8) {
                 // teleport player to parkour
@@ -115,8 +151,9 @@ public class LobbyListener implements Listener {
             if (event.getEntity() instanceof Player ) {
                 Player damaged =  (Player) event.getEntity();
 
-                // check if the player is currently spawn protected.
-                if (lobby.getLobbyManager().playerSpawnProtected(damaged)) {
+                // check if the player is currently spawn protected or in the rules area.
+                if (lobby.getLobbyManager().playerSpawnProtected(damaged) ||
+                        lobby.getRuleLobbyManager().containsPlayer(damaged.getUniqueId())) {
                     event.setCancelled(true);
                     return;
                 }
@@ -190,14 +227,36 @@ public class LobbyListener implements Listener {
         NPC npc = event.getNPC();
         Player player = event.getClicker();
         System.out.println("Npc clicked: " + npc.getName());
-        Game game= lobby.getGameManager().getGameByNpcName(npc.getName());
-        if (game == null) {
-            player.sendMessage("Game server not found, please try again later.");
+        npcClickEvent(player, npc.getName());
+    }
+
+    @EventHandler
+    public void onLeftClick(NPCLeftClickEvent event){
+        NPC npc = event.getNPC();
+        Player player = event.getClicker();
+        System.out.println("Npc clicked: " + npc.getName());
+        npcClickEvent(player, npc.getName());
+    }
+
+    private void npcClickEvent(Player player, String npcName) {
+        if (npcName.toLowerCase().contains("rulemaster")) {
+            RulesInventory rulesInventory = new RulesInventory(lobby);
+            player.openInventory(rulesInventory.getRulesInventory(player));
         } else {
-            System.out.println("Game found : " +game.getGameName());
-            game.playerJoinRequest(player);
+            Game game = lobby.getGameManager().getGameByNpcName(npcName);
+            if (game == null) {
+                player.sendMessage("Game server not found, please try again later.");
+            } else {
+                System.out.println("Game found : " + game.getGameName());
+                if (game.isPlayerInQueue(player.getUniqueId())) {
+                    player.sendMessage("You are already in the queue for this game!");
+                } else {
+                    game.playerJoinRequest(player);
+                }
+            }
         }
     }
+
 
     @EventHandler(priority= EventPriority.HIGHEST)
     public void onWeatherChange(WeatherChangeEvent event) {

@@ -24,8 +24,15 @@ public class ConnectListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         Player player = e.getPlayer();
-        lobby.getLobbyManager().playerJoined(player);
+
         e.setJoinMessage("");
+        if (lobby.getBb_api().getPlayerManager().getCustomPlayer(player.getUniqueId()).getRulesAccepted() == null) {
+            System.out.println("is new player");
+            lobby.getRuleLobbyManager().addPlayer(player.getUniqueId());
+        } else {
+            lobby.getLobbyManager().playerJoined(player);
+            System.out.println("has already accepted the rules");
+        }
 
     }
 
@@ -34,6 +41,7 @@ public class ConnectListener implements Listener {
     public void onLeave(PlayerQuitEvent e) {
         UUID uuid = e.getPlayer().getUniqueId();
         lobby.getGameManager().removePlayerFromQueues(uuid, null);
+        lobby.getRuleLobbyManager().removePlayer(uuid);
         e.setQuitMessage("");
     }
 

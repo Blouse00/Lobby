@@ -9,6 +9,7 @@ import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -32,13 +33,14 @@ public class GameInventory {
         Inventory inv = Bukkit.createInventory(player, 54, "" + ChatColor.DARK_GRAY + ChatColor.BOLD + "JOIN A GAME.");
 
         for (Game game : gameList) {
-            if (game.getGameColourInt() > -1) {
-                ItemStack wool = new ItemStack(new ItemStack(Material.INK_SACK, 1, (short) game.getGameColourInt()));
+          //  if (game.getGameColourInt() > -1) {
+                ItemStack wool = new ItemStack(new ItemStack(game.getMaterial()));
                 ItemMeta woolMeta = wool.getItemMeta();
+                woolMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
                 woolMeta.setDisplayName(ChatColor.GOLD + "Join " + game.getGameName());
                 wool.setItemMeta(woolMeta);
                 inv.setItem(game.getInventorySlot(), wool);
-            }
+          //  }
         }
 
         //FRAME
