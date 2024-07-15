@@ -1,7 +1,10 @@
 package com.stewart.lobby.listeners;
 
 import com.stewart.lobby.Lobby;
+import com.stewart.lobby.instances.AutoGameSelector;
 import com.stewart.lobby.manager.ConfigManager;
+import com.stewart.lobby.utils.NewPlayerGameInventory;
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -24,8 +27,10 @@ public class ConnectListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         Player player = e.getPlayer();
-
+        lobby.getLobbyManager().addToNoPvpList(player.getUniqueId());
         e.setJoinMessage("");
+
+
         if (lobby.getBb_api().getPlayerManager().getCustomPlayer(player.getUniqueId()).getRulesAccepted() == null) {
             System.out.println("is new player");
             lobby.getRuleLobbyManager().addPlayer(player.getUniqueId());

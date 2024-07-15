@@ -5,3 +5,4 @@ depend: [Citizens, bb_api]
 depends: [PartyAndFriends]
 commands:
   pw:
+  fly:

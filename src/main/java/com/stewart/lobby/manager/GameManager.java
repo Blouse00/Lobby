@@ -3,15 +3,13 @@ package com.stewart.lobby.manager;
 import com.gmail.tracebachi.SockExchange.Spigot.SockExchangeApi;
 import com.gmail.tracebachi.SockExchange.SpigotServerInfo;
 import com.stewart.lobby.Lobby;
+import com.stewart.lobby.instances.AutoGameSelector;
 import com.stewart.lobby.instances.Game;
 import com.stewart.lobby.instances.GameServer;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCRegistry;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -27,7 +25,9 @@ public class GameManager {
     private Lobby main;
     private List<Game> gameList = new ArrayList<>();
     YamlConfiguration gameConfig;
-    private List<GameServer> bedwarsServerList = new ArrayList<>();
+    private final List<GameServer> bedwarsServerList = new ArrayList<>();
+    private final HashMap<UUID, Integer> lstPlayersForAutoJoin = new HashMap<>();
+    private final HashMap<String, Integer> mapGameNameSlot = new HashMap<>();
 
     public GameManager(Lobby lobby) {
         this.main = lobby;
@@ -44,6 +44,50 @@ public class GameManager {
                 setUpGames();
             }
         }, 60L);
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(main, new Runnable() {
+            @Override
+            public void run() {
+                CheckAutoJoinPlayers();
+            }
+        }, 60, 20);
+    }
+
+    private void CheckAutoJoinPlayers() {
+        List<UUID> toRemove = new ArrayList<>();
+        // loop through the hashmap and send anyone who has been in it over 10 seconds to the server most likely to start
+        for (Map.Entry<UUID, Integer> entry : lstPlayersForAutoJoin.entrySet()) {
+            // the key is the players uuid
+            UUID key = entry.getKey();
+            // increment seconds by 1
+            entry.setValue(entry.getValue() + 1);
+            // the value is how long they have been in the list
+            Integer value = entry.getValue();
+            if (value > 25) {
+                // send them to the server most likely to start and remove them from this list
+                System.out.println("sending player to best server from timer");
+                sendPlayerToBestServer(key);
+                toRemove.add(key);
+            }
+        }
+        for (UUID uuid :toRemove) {
+            lstPlayersForAutoJoin.remove(uuid);
+        }
+    }
+
+    public void sendPlayerToBestServer(UUID uuid) {
+        System.out.println("sendPlayerToBestServer");
+        if (Bukkit.getPlayer(uuid) != null) {
+            AutoGameSelector autoGameSelector = new AutoGameSelector(main);
+            String gameMostLikelyToStart = autoGameSelector.getGameMostLikelyToStart();
+            System.out.println("best game is: " + gameMostLikelyToStart);
+            Player player = Bukkit.getPlayer(uuid);
+
+            // get the slot that applies to this game
+            Integer slot = mapGameNameSlot.get(gameMostLikelyToStart);
+            System.out.println("slot is " + slot);
+            // use existing code to send player to that game
+            gameChosenFromInventory(player, slot);
+        }
     }
 
     // should get rid of any npcs already in the map, before more are added.  not sure about this though
@@ -64,7 +108,7 @@ public class GameManager {
     }
 
     public void setUpGames() {
-        String[]  arrSubtypes = {"assault", "smp", "fia"};
+        String[]  arrSubtypes = {"assault", "smp", "fia", "icewars", "creative"};
         // first loop through each game type
         for (String s : arrSubtypes) {
             // eg 'bedwars_solo'
@@ -79,6 +123,8 @@ public class GameManager {
                 inventorySocket = gameConfig.getInt( s + ".inventory-slot");
             }
 
+            addGameToNameSlotMap(s, inventorySocket);
+
             Location location = new Location(Bukkit.getWorld("world"),
                     gameConfig.getDouble( s + ".npc-x"),
                     gameConfig.getDouble( s + ".npc-y"),
@@ -90,11 +136,13 @@ public class GameManager {
             game.spawnNPC();
             gameList.add(game);
 
-            if (s == "smp") {
+            if (s.equals("smp")) {
+                game.updateGameServer(gameConfig.getString(s + ".sockname"),
+                        "RECRUITING", 1, 10);
+            } else if (s.equals("creative")) {
                 game.updateGameServer(gameConfig.getString(s + ".sockname"),
                         "RECRUITING", 1, 10);
             } else {
-
                 System.out.println("game name " + s);
                 for (String s1 : gameConfig.getConfigurationSection(s + ".servers").getKeys(false)) {
                     SockExchangeApi sockExchangeApi = main.getSockExchangeApi();
@@ -138,6 +186,8 @@ public class GameManager {
                 material = Material.getMaterial(gameConfig.getString("bedwars" + "." + s + ".material"));
                 inventorySocket = gameConfig.getInt("bedwars" + "." + s + ".inventory-slot");
             }
+
+            addGameToNameSlotMap(s, inventorySocket);
 
             Location location = new Location(Bukkit.getWorld("world"),
                     gameConfig.getDouble("bedwars" + "." + s + ".npc-x"),
@@ -342,6 +392,10 @@ public class GameManager {
             System.out.println("Updating full iron armour server object");
             game = getGameByName("Full_Iron_Armour");
         }
+        if (sockName.startsWith("icewars")) {
+            System.out.println("Updating icewars armour server object");
+            game = getGameByName("BETA_Icewars");
+        }
         if (game != null) {
             System.out.println("game found sock name: " + sockName + ", status " + status);
             game.setMaxPlayers(maxPlayers);
@@ -404,7 +458,7 @@ public class GameManager {
                 if (game.isPlayerInQueue(player.getUniqueId())) {
                     player.sendMessage("You are already in the queue for this game!");
                 } else {
-                    game.playerJoinRequest(player);
+                    game.playerJoinRequest(player, false);
                 }
                 return;
             }
@@ -412,6 +466,8 @@ public class GameManager {
     }
 
     public List<Game> getGameList() { return this.gameList;   }
+
+    public List<GameServer> getBedwarsGameList() { return this.bedwarsServerList;   }
 
     public GameServer getBedwarsServerBySockName(String sockName) {
         if (bedwarsServerList == null) {
@@ -437,6 +493,46 @@ public class GameManager {
             }
         }
         return  null;
+    }
+
+    // the code for the auto game selector returns the game name, I need to map that to the slot so I can use existing
+    // code to send player to the game
+    private void addGameToNameSlotMap(String name, int slot) {
+        switch (name){
+            case("assault"):
+                mapGameNameSlot.put("Assault_Course", slot);
+                break;
+            case("smp"):
+                mapGameNameSlot.put("SMP", slot);
+                break;
+            case("fia"):
+                mapGameNameSlot.put("Full_Iron_Armour", slot);
+                break;
+            case("creative"):
+                mapGameNameSlot.put("Creative", slot);
+                break;
+            case("icewars"):
+                mapGameNameSlot.put("Icewars", slot);
+                mapGameNameSlot.put("BETA_Icewars", slot);
+                break;
+            case("solo"):
+                mapGameNameSlot.put("Bedwars_solo", slot);
+                break;
+            case("duo"):
+                mapGameNameSlot.put("Bedwars_duos", slot);
+                break;
+            case("quad"):
+                mapGameNameSlot.put("Bedwars_quads", slot);
+                break;
+        }
+    }
+
+    public void AddPlayerToAutoJoin(UUID uuid) {
+        lstPlayersForAutoJoin.put(uuid, 0);
+    }
+
+    public void RemovePlayerFromAutoJoin(UUID uuid) {
+        lstPlayersForAutoJoin.remove(uuid);
     }
 
 }

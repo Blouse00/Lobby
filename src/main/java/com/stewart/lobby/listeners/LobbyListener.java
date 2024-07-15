@@ -1,11 +1,9 @@
 package com.stewart.lobby.listeners;
 
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
 import com.stewart.lobby.Lobby;
 import com.stewart.lobby.instances.Game;
-import com.stewart.lobby.manager.PortalManager;
 import com.stewart.lobby.utils.GameInventory;
+import com.stewart.lobby.utils.NewPlayerGameInventory;
 import com.stewart.lobby.utils.RulesInventory;
 import net.citizensnpcs.api.event.NPCLeftClickEvent;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
@@ -14,10 +12,7 @@ import net.minecraft.server.v1_8_R3.IChatBaseComponent;
 import net.minecraft.server.v1_8_R3.PacketPlayOutTitle;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
-import org.bukkit.craftbukkit.v1_8_R3.entity.CraftTNTPrimed;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -29,18 +24,21 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.weather.ThunderChangeEvent;
 import org.bukkit.event.weather.WeatherChangeEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.IOException;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 
 // event for when player clicks on a sign
 public class LobbyListener implements Listener {
 
-    private Lobby lobby;
+    private final Lobby lobby;
 
     public LobbyListener(Lobby lobby) {
         this.lobby = lobby;
@@ -64,35 +62,65 @@ public class LobbyListener implements Listener {
                 // the shop click function handles what to do depending on the slot that was clicked
                 lobby.getGameManager().gameChosenFromInventory(player, e.getRawSlot());
             } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
+                        .equals("" + ChatColor.GOLD + ChatColor.BOLD + "JUMP INTO A GAME.") &&
+                        e.getCurrentItem() != null) {
+                Player player = (Player) e.getWhoClicked();
+                int slot = e.getRawSlot();
+
+                if (slot == 20) {
+                    // send the player to the server most likely to start.
+                    player.closeInventory();
+                    System.out.println("sending player to best server from inventory option");
+                    lobby.getGameManager().sendPlayerToBestServer(player.getUniqueId());
+                } else if (slot == 22) {
+                    player.closeInventory();
+                    lobby.getGameManager().RemovePlayerFromAutoJoin(player.getUniqueId());
+                    // need to wait a short while after closing an inventory before opening another one
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            GameInventory gameInventory = new GameInventory(lobby);
+                            player.openInventory(gameInventory.getGameInventory(player));
+                        }
+                    }.runTaskLater(lobby, 5);
+                } else if (slot == 24) {
+                    player.closeInventory();
+                    lobby.getGameManager().RemovePlayerFromAutoJoin(player.getUniqueId());
+                }
+            } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
                     .equals("" + ChatColor.DARK_GRAY + ChatColor.BOLD + "ACCEPT THE RULES.") &&
                     e.getCurrentItem() != null) {
 
                 Player player = (Player) e.getWhoClicked();
 
                 if (e.getRawSlot() == 20) {
-                    System.out.printf("rules not accepted :(");
+                    System.out.println("rules not accepted :(");
                     // rules not accepted
                     player.closeInventory();
                     player.sendMessage( ChatColor.RED + "You must accept the rules before joining this server!");
                 }
                 if (e.getRawSlot() == 24) {
-                    System.out.printf("rules accepted :)");
+                    System.out.println("rules accepted :)");
                     // rules accepted
                     player.sendMessage( ChatColor.GREEN + "Thank you for accepting the rules, we hope you enjoy our server!");
                     lobby.getBb_api().getPlayerManager().logRulesAccepted(player.getUniqueId());
                     lobby.getRuleLobbyManager().removePlayer(player.getUniqueId());
                     lobby.getLobbyManager().playerJoined(player);
                 }
-
             }
+    }
+    @EventHandler
+    public void invClose(InventoryCloseEvent event){
+        System.out.println("close inventory fired");
+        lobby.getGameManager().RemovePlayerFromAutoJoin(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
     public void Chat(AsyncPlayerChatEvent event) {
-        System.out.printf("player chatevent fired");
+        System.out.println("player chat event fired");
         Player player = event.getPlayer();
         if (lobby.getRuleLobbyManager().containsPlayer(player.getUniqueId())) {
-            System.out.printf("cancel chat");
+            System.out.println("cancel chat");
             player.sendMessage(ChatColor.RED + " The rules must be accepted before you can chat");
             player.sendMessage(ChatColor.GOLD + " Click the judge to accept the rules");
             event.setCancelled(true);
@@ -101,7 +129,7 @@ public class LobbyListener implements Listener {
 
     @EventHandler
     public void Chat(PlayerCommandPreprocessEvent event) {
-        System.out.printf("player command fired");
+        System.out.println("player command fired");
         Player player = event.getPlayer();
         if (lobby.getRuleLobbyManager().containsPlayer(player.getUniqueId())) {
             System.out.println("cancel command");
@@ -124,6 +152,9 @@ public class LobbyListener implements Listener {
 
         Action action = e.getAction();
 
+      //  player.sendMessage("replay id = " + ReplayAPI.getReplayID());
+
+
         if (action == Action.RIGHT_CLICK_BLOCK || action == Action.RIGHT_CLICK_AIR) {
 
             int slot = player.getInventory().getHeldItemSlot();
@@ -136,6 +167,7 @@ public class LobbyListener implements Listener {
             if (slot == 8) {
                 // teleport player to parkour
                 lobby.getLobbyManager().teleportToParkour(player);
+                e.setCancelled(true);
             }
         }
     }
@@ -144,16 +176,17 @@ public class LobbyListener implements Listener {
     public void damage(EntityDamageEvent event) //Listens to EntityDamageEvent
     {
 
-        System.out.println("Damage type = " + event.getCause().toString());
+     //   System.out.println("Damage type = " + event.getCause().toString());
 
             // each time a player damages a player I need to log who damaged who in a hashmap in the arena
             // this allows me to determine who killed a player in the EntityDamageEntity event above.
             if (event.getEntity() instanceof Player ) {
                 Player damaged =  (Player) event.getEntity();
 
-                // check if the player is currently spawn protected or in the rules area.
+                // check if the player is currently spawn protected or in the rules or no pvp area.
                 if (lobby.getLobbyManager().playerSpawnProtected(damaged) ||
-                        lobby.getRuleLobbyManager().containsPlayer(damaged.getUniqueId())) {
+                        lobby.getRuleLobbyManager().containsPlayer(damaged.getUniqueId()) ||
+                                lobby.getLobbyManager().isNoPvp(damaged.getUniqueId())) {
                     event.setCancelled(true);
                     return;
                 }
@@ -193,11 +226,9 @@ public class LobbyListener implements Listener {
             // handles checking if game won etc & respawning 'killed' player.
             // damager may be null
             lobby.getLobbyManager().playerKilled(player);
-            if (player != null) {
-                PacketPlayOutTitle title = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.TITLE,
-                        IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + "§4" + "You died!" + "\"}"), 3, 150, 50);
-                ((CraftPlayer) Bukkit.getPlayer(player.getUniqueId())).getHandle().playerConnection.sendPacket(title);
-            }
+            PacketPlayOutTitle title = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.TITLE,
+                    IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + "§4" + "You died!" + "\"}"), 3, 150, 50);
+            ((CraftPlayer) Bukkit.getPlayer(player.getUniqueId())).getHandle().playerConnection.sendPacket(title);
         }
     }
 
@@ -242,6 +273,30 @@ public class LobbyListener implements Listener {
         if (npcName.toLowerCase().contains("rulemaster")) {
             RulesInventory rulesInventory = new RulesInventory(lobby);
             player.openInventory(rulesInventory.getRulesInventory(player));
+        } else  if (npcName.toLowerCase().contains("discord")) {
+            List<String> discordArray = new ArrayList<>();
+            discordArray.add(" ");
+            discordArray.add("                   &6&lJoin Our Discord");
+            discordArray.add("&6╔══════════════════════════╗");
+            discordArray.add("&6║  &fClick here: &9&n https://discord.gg/Ypx4kTRbHp&r&6  ║");
+            discordArray.add("&6╚══════════════════════════╝");
+            discordArray.add(" ");
+            for(String line : discordArray) {
+                line = ChatColor.translateAlternateColorCodes('&', line);
+                player.sendMessage(line);
+              //  player.sendMessage("&9║  &cClick here: &e" + ChatColor.UNDERLINE + "https://discord.gg/Ypx4kTRbHp &9║");
+            }
+
+        /*    discordArray[0] = "&g╔═══════  &6&lJoin Our Discord &g════════╗";
+            discordArray[1] = "&g║  &cClick here: &n&9https://discord.gg/Ypx4kTRbHp&r&g ║";
+            discordArray[2] = "&g╚════════════════════════════╝";*/
+          /*  player.sendMessage(ChatColor.BLUE + "====================================================");
+            player.sendMessage(ChatColor.GOLD + "Click the link below to join our discord server");
+            player.sendMessage(ChatColor.YELLOW + "https://discord.gg/Ypx4kTRbHp" );
+            player.sendMessage(ChatColor.BLUE + "====================================================");*/
+
+        } else  if (npcName.toLowerCase().contains("votemaster")) {
+            player.performCommand("vote");
         } else {
             Game game = lobby.getGameManager().getGameByNpcName(npcName);
             if (game == null) {
@@ -251,7 +306,7 @@ public class LobbyListener implements Listener {
                 if (game.isPlayerInQueue(player.getUniqueId())) {
                     player.sendMessage("You are already in the queue for this game!");
                 } else {
-                    game.playerJoinRequest(player);
+                    game.playerJoinRequest(player, false);
                 }
             }
         }

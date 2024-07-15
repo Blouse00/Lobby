@@ -43,7 +43,9 @@ public class GameServer {
 
     public String getSockName() {return sockName;}
 
-    public int getCurrentPlayers() {return currentPlayers;}
+    public int getCurrentPlayers() {return
+            currentPlayers;
+    }
 
     public int getTeamSize() {return teamSize;}
 

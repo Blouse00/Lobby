@@ -4,6 +4,7 @@ import com.gmail.tracebachi.SockExchange.Messages.ReceivedMessage;
 import com.gmail.tracebachi.SockExchange.Messages.ReceivedMessageNotifier;
 import com.gmail.tracebachi.SockExchange.Spigot.SockExchangeApi;
 import com.google.common.io.ByteArrayDataInput;
+import com.stewart.lobby.commands.FlyCommand;
 import com.stewart.lobby.commands.LobbyCommand;
 import com.stewart.lobby.listeners.ConnectListener;
 import com.stewart.lobby.listeners.LobbyListener;
@@ -57,6 +58,7 @@ public final class Lobby extends JavaPlugin {
 
         // register the pw command class
         getCommand("pw").setExecutor(new LobbyCommand(this));
+        getCommand("fly").setExecutor(new FlyCommand(this));
 
         // this is used to get messages from the game server for the purrpose of updating the sign posts
         sockExchangeApi = SockExchangeApi.instance();

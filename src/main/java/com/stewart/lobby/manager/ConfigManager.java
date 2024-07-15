@@ -69,6 +69,22 @@ public class ConfigManager {
         return config.getString("rules-npc-signature");
     }
 
+    public  static String getVotesSkinTexture() {
+        return config.getString("votes-npc-texture");
+    }
+
+    public  static String getVotesSkinSignature() {
+        return config.getString("votes-npc-signature");
+    }
+
+    public  static String getDiscordSkinTexture() {
+        return config.getString("discord-npc-texture");
+    }
+
+    public  static String getDiscordSkinSignature() {
+        return config.getString("discord-npc-signature");
+    }
+
     public static List<String> getPostRules() {
         List<String> test1 = config.getStringList("rules-post");
         return test1;

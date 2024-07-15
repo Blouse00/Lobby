@@ -1,20 +1,27 @@
 package com.stewart.lobby.manager;
 
 import com.stewart.lobby.Lobby;
+import com.stewart.lobby.utils.NewPlayerGameInventory;
+import net.citizensnpcs.api.CitizensAPI;
+import net.citizensnpcs.trait.SkinTrait;
 import net.minecraft.server.v1_8_R3.EnumParticle;
 import net.minecraft.server.v1_8_R3.PacketPlayOutWorldParticles;
 import org.bukkit.*;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
-import org.stewart.bb_api.Bb_api;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
+
+import static org.bukkit.Bukkit.getScheduler;
 
 public class LobbyManager {
 
@@ -26,11 +33,53 @@ public class LobbyManager {
     private final HashMap<UUID, Integer> playerSpawnProtect = new HashMap<>();
     private  int particleIterator = 19; // Task will run 10 times.
     private BukkitTask particleTask = null;
+    private final List<UUID> lstNoPvp;
+    private final Location noPvpTopCorner;
+    private final Location noPvpBottomCorner;
 
     public LobbyManager(Lobby lobby) {
         this.main = lobby;
         feetBlockY = main.getConfig().getInt("feet-block-y");
         startClock();
+        lstNoPvp = new ArrayList<>();
+        noPvpTopCorner = new Location(Bukkit.getWorld("world"), 12.5, 53, 37);
+        noPvpBottomCorner = new Location(Bukkit.getWorld("world"), -13, 42, -8.5 );
+        spawnVoteMaster();
+        spawnDiscordNPC();
+    }
+
+    private void spawnVoteMaster() {
+        Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
+            @Override
+            public void run() {
+                String npcName = ChatColor.GOLD + "Votemaster";
+
+                net.citizensnpcs.api.npc.NPC npc = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
+                SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
+                skin.setSkinPersistent("vote", ConfigManager.getVotesSkinSignature(), ConfigManager.getVotesSkinTexture());
+                npc.spawn(new Location(Bukkit.getWorld("world"), -7.5, 45, 18.5, -156, -17));
+
+                System.out.println("spawning npc for votes");
+            }
+        }, 200L);
+
+    }
+
+    private void spawnDiscordNPC() {
+        Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
+            @Override
+            public void run() {
+                String npcName = ChatColor.BLUE + "Discord";
+
+                net.citizensnpcs.api.npc.NPC npc = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
+                SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
+                skin.setSkinPersistent("discord", ConfigManager.getDiscordSkinSignature(), ConfigManager.getDiscordSkinTexture());
+                npc.spawn(new Location(Bukkit.getWorld("world"), 0.5, 48, 0.5, -120, -10));
+
+                System.out.println("spawning npc for discord");
+            }
+        }, 200L);
+
     }
 
     private void startClock() {
@@ -42,8 +91,7 @@ public class LobbyManager {
 
     private void doClockTick() {
 
-
-        if (playerSpawnProtect.size() > 0) {
+        if (!playerSpawnProtect.isEmpty()) {
             // remove any players from spawn protect list that may have left the game
             playerSpawnProtect.entrySet().removeIf(e->  Bukkit.getPlayer(e.getKey()) == null );
             // show particles around spawn protected players
@@ -51,6 +99,8 @@ public class LobbyManager {
             particleTask = null;
             showPlayerParticles();
         }
+
+        checkPlayerZone();
 
         // removes players from the spawn protect list who has been there 5 seconds or more
         playerSpawnProtect.entrySet().removeIf(e -> e.getValue() + 4 < gameSeconds );
@@ -96,7 +146,7 @@ public class LobbyManager {
         player.getInventory().setLeggings(null);
         player.getInventory().setBoots(null);
         // give them compass for teleport to parkour
-        ItemStack compass = new ItemStack(Material.STONE_SLAB2);
+        ItemStack compass = new ItemStack(Material.NETHER_STAR);
         ItemMeta ism = compass.getItemMeta();
         ism.setDisplayName(ChatColor.BLUE+ "Go to lobby parkour");
         compass.setItemMeta(ism);
@@ -109,13 +159,42 @@ public class LobbyManager {
         player.getInventory().setItem(0,netherStar);
         // set active hotbar slot to middle
         player.getInventory().setHeldItemSlot(4);
+        showJoinMessages(player);
 
         // after 2 seconds check & adjust their y coordinate
         Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> {
-            if (player != null) {
-                checkPlayerFeetLevel(player);
-            }
+            checkPlayerFeetLevel(player);
         }, 40L);
+
+        Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
+            @Override
+            public void run() {
+                NewPlayerGameInventory newPlayerGameInventory = new NewPlayerGameInventory(main);
+                player.openInventory(newPlayerGameInventory.getGameInventory(player));
+                main.getGameManager().AddPlayerToAutoJoin(player.getUniqueId());
+            }
+        }, 80L);
+    }
+
+    private void showJoinMessages(Player player) {
+        int chatStart = 20;
+        int chatSpeed = 80;
+        int chatTime = chatStart + chatSpeed;
+        getScheduler().scheduleSyncDelayedTask(main, () -> player.sendMessage(ChatColor.BLUE + "================" + ChatColor.GOLD + " Welcome to BashyBashy " + ChatColor.BLUE + "================"), chatStart);
+        getScheduler().scheduleSyncDelayedTask(main, () -> player.sendMessage(ChatColor.WHITE + "Our mini-games will start with as few as 2 players!"), chatTime);
+        chatTime += chatSpeed;
+        getScheduler().scheduleSyncDelayedTask(main, () -> player.sendMessage(ChatColor.WHITE + "Feel free to bring your friends for a game any time."), chatTime);
+        chatTime += chatSpeed;
+        getScheduler().scheduleSyncDelayedTask(main, () -> player.sendMessage(ChatColor.WHITE + "The more players, the quicker the games will start!"), chatTime);
+        chatTime += chatSpeed;
+        getScheduler().scheduleSyncDelayedTask(main, () -> player.sendMessage(ChatColor.WHITE + "Currently we are mostly arranging game sessions via Discord."), chatTime);
+        chatTime += chatSpeed;
+        getScheduler().scheduleSyncDelayedTask(main, () -> player.sendMessage(ChatColor.WHITE + "So join our discord server! " + ChatColor.BLUE + "" + ChatColor.UNDERLINE + "https://discord.gg/Ypx4kTRbHp" ), chatTime);
+        chatTime += chatSpeed;
+        getScheduler().scheduleSyncDelayedTask(main, () -> player.sendMessage(ChatColor.GOLD + "Either use the " + ChatColor.BLUE + "compass" + ChatColor.GOLD + " in your hotbar to select a game, or click on an" +
+                ChatColor.BLUE + " NPC " + ChatColor.GOLD + "to start." ), chatTime);
+        chatTime += chatSpeed;
+        getScheduler().scheduleSyncDelayedTask(main, () -> player.sendMessage(ChatColor.BLUE + "===================================================="), chatTime);
     }
 
     private void checkPlayerFeetLevel(Player player) {
@@ -183,6 +262,51 @@ public class LobbyManager {
         }
     }
 
+    private void checkPlayerZone() {
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+
+            UUID uuid = player.getUniqueId();
+          //  System.out.println("Checking " + player.getName() + " is in list = " + (lstNoPvp.contains(uuid) ? "true" : "false"));
+
+            if (isInRegion(player.getLocation(), noPvpBottomCorner, noPvpTopCorner)) {
+                if (!lstNoPvp.contains(uuid)){
+                    lstNoPvp.add(uuid);
+                    player.sendMessage("Entering no PVP area");
+                }
+            } else {
+                if (lstNoPvp.contains(uuid)) {
+                    lstNoPvp.remove(uuid);
+                    player.sendMessage("Leaving no PVP area");
+                }
+            }
+        }
+    }
+
+    public static boolean isInRegion(Location playerLocation, Location lowestPos, Location highestPos){
+
+        double x = playerLocation.getX();
+        double y = playerLocation.getY();
+        double z = playerLocation.getZ();
+
+        double lowx = lowestPos.getX();
+        double lowy = lowestPos.getY();
+        double lowz = lowestPos.getZ();
+
+        double highx = highestPos.getX();
+        double highy = highestPos.getY();
+        double highz = highestPos.getZ();
+
+        return (x <= highx && x >= lowx) && (y <= highy && y >= lowy) && (z <= highz && z >= lowz);
+    }
+
+    public boolean isNoPvp(UUID uuid) {
+        return lstNoPvp.contains(uuid);
+    }
+
+    public void addToNoPvpList(UUID uuid) {
+        lstNoPvp.add(uuid);
+    }
     public void sendMessage(String message) {
         Bukkit.broadcastMessage(ChatColor.WHITE + message);
     }
