@@ -166,14 +166,14 @@ public class LobbyManager {
             checkPlayerFeetLevel(player);
         }, 40L);
 
-        Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
+       /* Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
             @Override
             public void run() {
                 NewPlayerGameInventory newPlayerGameInventory = new NewPlayerGameInventory(main);
                 player.openInventory(newPlayerGameInventory.getGameInventory(player));
                 main.getGameManager().AddPlayerToAutoJoin(player.getUniqueId());
             }
-        }, 80L);
+        }, 80L);*/
     }
 
     private void showJoinMessages(Player player) {

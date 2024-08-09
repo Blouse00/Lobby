@@ -105,6 +105,9 @@ public class Game {
 
         boolean allowJoin = true;
 
+        // TODO look at the PAF stuff here again. Peter says a non leader could join the server and then the leader could not,
+        // may be something to do with the from queue variable.
+
         if(!fromQueue) {
             player.sendMessage("Attempting to join " + this.name + "!");
             PAFPlayer pafPlayer = PAFPlayerManager.getInstance().getPlayer(player.getUniqueId());
