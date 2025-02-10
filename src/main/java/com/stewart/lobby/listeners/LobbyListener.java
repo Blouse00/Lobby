@@ -2,16 +2,18 @@ package com.stewart.lobby.listeners;
 
 import com.stewart.lobby.Lobby;
 import com.stewart.lobby.instances.Game;
+import com.stewart.lobby.manager.ConfigManager;
 import com.stewart.lobby.utils.GameInventory;
 import com.stewart.lobby.utils.NewPlayerGameInventory;
 import com.stewart.lobby.utils.RulesInventory;
+import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.event.NPCLeftClickEvent;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
 import net.citizensnpcs.api.npc.NPC;
+import net.citizensnpcs.trait.SkinTrait;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
 import net.minecraft.server.v1_8_R3.PacketPlayOutTitle;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
+import org.bukkit.*;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -47,7 +49,11 @@ public class LobbyListener implements Listener {
     @EventHandler
     public void onClick (InventoryClickEvent e) {
 
-        e.setCancelled(true);
+        // allow players who are op & in creative mode to change stuff
+        if (!e.getWhoClicked().isOp() && !e.getWhoClicked().getGameMode().equals(GameMode.CREATIVE)) {
+            e.setCancelled(true);
+        }
+
         if (e.getClickedInventory() == null) {
             System.out.println("Clicked inventory is null");
             return;
@@ -104,8 +110,10 @@ public class LobbyListener implements Listener {
                     // rules accepted
                     player.sendMessage( ChatColor.GREEN + "Thank you for accepting the rules, we hope you enjoy our server!");
                     lobby.getBb_api().getPlayerManager().logRulesAccepted(player.getUniqueId());
+
                     lobby.getRuleLobbyManager().removePlayer(player.getUniqueId());
                     lobby.getLobbyManager().playerJoined(player);
+                    player.performCommand("tutorial BashyIntro");
                 }
             }
     }
@@ -142,7 +150,27 @@ public class LobbyListener implements Listener {
     // prevent any blocks being broken
     @EventHandler
     public void onBlockBreak(BlockBreakEvent e) throws IOException {
-        // no block break
+        // no block place unless op in creative mode
+        if (e.getPlayer() != null) {
+            Player player = e.getPlayer();
+            if (player.isOp() && player.getGameMode().equals(GameMode.CREATIVE)) {
+                player.getWorld().save();
+                return;
+            }
+        }
+        e.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onBlockPlace(BlockPlaceEvent e) throws IOException {
+        // no block break unless op in creative
+        if (e.getPlayer() != null) {
+            Player player = e.getPlayer();
+            if (player.isOp() && player.getGameMode().equals(GameMode.CREATIVE)) {
+                player.getWorld().save();
+                return;
+            }
+        }
         e.setCancelled(true);
     }
 
@@ -232,12 +260,7 @@ public class LobbyListener implements Listener {
         }
     }
 
-    // prevent any blocks being placed
-    @EventHandler
-    public void onBlockPlace(BlockPlaceEvent e) throws IOException {
-        // no block break
-        e.setCancelled(true);
-    }
+
 
     // prevent any blocks being placed
     @EventHandler
@@ -287,13 +310,6 @@ public class LobbyListener implements Listener {
               //  player.sendMessage("&9║  &cClick here: &e" + ChatColor.UNDERLINE + "https://discord.gg/Ypx4kTRbHp &9║");
             }
 
-        /*    discordArray[0] = "&g╔═══════  &6&lJoin Our Discord &g════════╗";
-            discordArray[1] = "&g║  &cClick here: &n&9https://discord.gg/Ypx4kTRbHp&r&g ║";
-            discordArray[2] = "&g╚════════════════════════════╝";*/
-          /*  player.sendMessage(ChatColor.BLUE + "====================================================");
-            player.sendMessage(ChatColor.GOLD + "Click the link below to join our discord server");
-            player.sendMessage(ChatColor.YELLOW + "https://discord.gg/Ypx4kTRbHp" );
-            player.sendMessage(ChatColor.BLUE + "====================================================");*/
 
         } else  if (npcName.toLowerCase().contains("votemaster")) {
             player.performCommand("vote");
@@ -327,6 +343,51 @@ public class LobbyListener implements Listener {
         boolean storm = event.toThunderState();
         if(storm)
             event.setCancelled(true);
+    }
+
+/*    @EventHandler
+    public void onPlayerTeleport(PlayerTeleportEvent event){
+
+
+        if(event.getCause().equals(PlayerTeleportEvent.TeleportCause.END_PORTAL)){
+            System.out.println("Cancelled");
+            event.setCancelled(true);
+        }
+    }*/
+
+    @EventHandler
+    public void onPortal(PlayerPortalEvent event) {
+
+      //  System.out.println("------------------------------------------portal event fired");
+
+        if(event.getCause() == PlayerTeleportEvent.TeleportCause.END_PORTAL) {
+
+            Player player = event.getPlayer();
+
+            // this event fires multiple times. only do the check if they are not already portalling
+            if (!lobby.getLobbyManager().isPlayerPortalling(player)) {
+
+                lobby.getLobbyManager().addPlayerPortalling(player);
+
+                // Delay by a couple of seconds, so they get the portal effect.
+             //   Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, () -> {
+                   if (lobby.getGameManager().sendPlayerToBestServer(player.getUniqueId())) {
+                       // the player will get sent to a server, cancel the portal event
+                       event.setCancelled(true);
+                   } else {
+                      // no games to join send them to lobby respawn
+                       event.getPortalTravelAgent().setCanCreatePortal(false);
+                       event.setTo(ConfigManager.getLobbyReSpawn());
+                   }
+             //   }, 10L);
+
+            } else {
+              //  System.out.println("+++++++++++++++++++++++++++++++++++Player was already portalling");
+                event.setCancelled(true);
+            }
+
+
+        }
     }
 
 }

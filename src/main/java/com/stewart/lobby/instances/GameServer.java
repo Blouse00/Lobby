@@ -1,4 +1,6 @@
 package com.stewart.lobby.instances;
+import com.gmail.tracebachi.SockExchange.Spigot.SockExchangeApi;
+import com.gmail.tracebachi.SockExchange.SpigotServerInfo;
 import com.stewart.lobby.manager.GameManager;
 import java.util.List;
 
@@ -12,13 +14,15 @@ public class GameServer {
     private int maxPlayers;
     private List<String> playersInQueue;
 
-    public GameServer(GameManager manager, String sockName, String gameStatus, int currentPlayers, int teamSize) {
+    public GameServer(GameManager manager, String sockName, String gameStatus, int currentPlayers, int teamSize, int maxPlayers) {
         this.gameManager = manager;
         this.sockName =  sockName;
         this.gameStatus = gameStatus;
         this.currentPlayers = currentPlayers;
+        // teamSize is only used for bedwars
         this.teamSize = teamSize;
-        setMaxPlayers();
+        this.maxPlayers = maxPlayers;
+        //setMaxPlayers();
     }
 
     public void setMaxPlayers() {
@@ -31,15 +35,33 @@ public class GameServer {
         }
     }
 
-
-    public void updateDetails(String gameStatus, int currentPlayers, int teamSize) {
+    public void updateDetails(String gameStatus, int currentPlayers, int teamSize, int maxPlayers) {
         this.gameStatus = gameStatus;
         this.currentPlayers = currentPlayers;
         this.teamSize = teamSize;
-        setMaxPlayers();
+        this.maxPlayers = maxPlayers;
     }
 
-
+    // check if this game server is still online.
+    public boolean checkIsOnline() {
+       // System.out.println("checkIsOnline");
+        if (sockName != null) {
+          //  System.out.println("checkIsOnline sockname is " + sockName);
+         //   System.out.println("check is online sockname " + sockName);
+            SockExchangeApi sockExchangeApi = gameManager.getMain().getSockExchangeApi();
+            SpigotServerInfo spigotServerInfo = sockExchangeApi.getServerInfo(sockName);
+            if (spigotServerInfo == null) {
+                System.out.println("checkIsOnline spigotServerInfo is null for sockname " + sockName);
+                return false;
+            } else if (!spigotServerInfo.isOnline()) {
+               // System.out.println("checkIsOnline server is online");
+                return false;
+            }
+            return true;
+        }
+        System.out.println("sockname is null");
+        return false;
+    }
 
     public String getSockName() {return sockName;}
 

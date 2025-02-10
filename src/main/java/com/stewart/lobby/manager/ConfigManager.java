@@ -17,6 +17,11 @@ public class ConfigManager {
         lobby.saveDefaultConfig();
     }
 
+    public static boolean getAnnounceGameJoin() {
+        return config.getBoolean("announce-game-join");
+    }
+
+
     public  static Location getLobbySpawn() {
         return new Location(
                 Bukkit.getWorld(config.getString("lobby-spawn.world")),
@@ -25,6 +30,16 @@ public class ConfigManager {
                 config.getDouble("lobby-spawn.z"),
                 (float) config.getDouble("lobby-spawn.yaw"),
                 (float) config.getDouble("lobby-spawn.pitch"));
+    }
+
+    public  static Location getLobbyReSpawn() {
+        return new Location(
+                Bukkit.getWorld(config.getString("lobby-respawn.world")),
+                config.getDouble("lobby-respawn.x"),
+                config.getDouble("lobby-respawn.y"),
+                config.getDouble("lobby-respawn.z"),
+                (float) config.getDouble("lobby-respawn.yaw"),
+                (float) config.getDouble("lobby-respawn.pitch"));
     }
 
     public  static Location getRulesSpawn() {
@@ -49,6 +64,18 @@ public class ConfigManager {
 
     public  static int getRulesInterval() {
         return config.getInt("rules-interval");
+    }
+
+    public static String getDiscordToken() {
+        return config.getString("discord.token");
+    }
+
+    public static String getDiscordServer() {
+        return config.getString("discord.server");
+    }
+
+    public static String getDiscordChannel() {
+        return config.getString("discord.channel");
     }
 
     public static List<String> getRules() {

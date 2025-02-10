@@ -17,7 +17,7 @@ public class AutoGameSelector {
 
         CheckNonBedwarsGames();
         CheckBedwarsGames();
-        System.out.println("Checked all game servers, total found = " + lstAllGameServers.size());
+      //  System.out.println("Checked all game servers, total found = " + lstAllGameServers.size());
         if (lstAllGameServers.isEmpty()) {
             return "";
         } else {
@@ -28,8 +28,8 @@ public class AutoGameSelector {
     private void CheckNonBedwarsGames() {
         for (Game game : main.getGameManager().getGameList()) {
             // ignore creative and smp
-            System.out.println("getGameMostLikelyToStart searching game " + game.getGameName());
-            if (!game.getGameName().equalsIgnoreCase("SMP") &&
+          //  System.out.println("getGameMostLikelyToStart searching game " + game.getGameName());
+            if (!game.getGameName().contains("SMP") &&
                     !game.getGameName().equalsIgnoreCase("Creative")) {
                 int minPlayers = getGameMinPlayers(game.getGameName());
                 // could be multiple servers for each game
@@ -99,11 +99,11 @@ public class AutoGameSelector {
             lst.sort(Comparator.comparing(GameForAutoJoin::getScore).reversed()
                     .thenComparing(c -> definedOrder.indexOf(c.getName())));
             // check the sorting
-            int j =0;
+           /* int j =0;
             for (GameForAutoJoin game : lst) {
                 System.out.println("index " + j +" score " + game.getScore() + ", name " + game.getName());
                 j++;
-            }
+            }*/
             return lst.get(0).getName();
         }
     }

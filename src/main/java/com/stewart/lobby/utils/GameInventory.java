@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -33,14 +34,19 @@ public class GameInventory {
         Inventory inv = Bukkit.createInventory(player, 54, "" + ChatColor.DARK_GRAY + ChatColor.BOLD + "JOIN A GAME.");
 
         for (Game game : gameList) {
-          //  if (game.getGameColourInt() > -1) {
+          //  System.out.println("--------------------game name " + game.getGameName());
+            if ((game.getGameName().toLowerCase().startsWith("fiend") && player.hasPermission("group.admin")) ||
+                    !game.getGameName().toLowerCase().startsWith("fiend")) {
+                //  if (game.getGameColourInt() > -1) {
                 ItemStack wool = new ItemStack(new ItemStack(game.getMaterial()));
                 ItemMeta woolMeta = wool.getItemMeta();
                 woolMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+                setGameLore(woolMeta, game.getGameName());
                 woolMeta.setDisplayName(ChatColor.GOLD + "Join " + game.getGameName());
                 wool.setItemMeta(woolMeta);
                 inv.setItem(game.getInventorySlot(), wool);
-          //  }
+                //  }
+            }
         }
 
         //FRAME
@@ -51,5 +57,70 @@ public class GameInventory {
             inv.setItem(i, frame);
 
         return inv;
+    }
+
+    private void setGameLore(ItemMeta itemMeta, String gameName) {
+        List<String> lst = new ArrayList<>();
+        switch (gameName.toLowerCase()) {
+            case ("bedwars_solo"): {
+                lst.add(ChatColor.GRAY + "Protect your bed to respawn, Destroy others!");
+                lst.add(ChatColor.GRAY + "Buy items and upgrades to get an advantage.");
+                lst.add(ChatColor.GRAY + "Bridge to other islands and attack other players.");
+                lst.add(ChatColor.GRAY + "Shops at mid offer special enchants & items!");
+                itemMeta.setLore(lst);
+                break;
+            }
+            case ("bedwars_quads"):
+            case ("bedwars_duos"): {
+                lst.add(ChatColor.GRAY + "Protect your teams bed to respawn, Destroy others!");
+                lst.add(ChatColor.GRAY + "Buy items and upgrades to get an advantage.");
+                lst.add(ChatColor.GRAY + "Bridge to other islands and attack other teams.");
+                lst.add(ChatColor.GRAY + "Shops at mid offer special enchants & items!");
+                itemMeta.setLore(lst);
+                break;
+            }
+            case ("assault_course"): {
+                lst.add(ChatColor.GRAY + "Parkour with punching!, Race to the finish line");
+                lst.add(ChatColor.GRAY + "Punch or shoot other players into the void!");
+                lst.add(ChatColor.GRAY + "Passing a checkpoint makes it your new respawn point.");
+                lst.add(ChatColor.GRAY + "Try to get the fastest times for each arena!");
+                itemMeta.setLore(lst);
+                break;
+            }
+            case ("beta_icewars"): {
+                lst.add(ChatColor.GRAY + "Icewars is skywars and spleefs cursed offspring!");
+                lst.add(ChatColor.GRAY + "Snowballs destroy most blocks they land on.");
+                lst.add(ChatColor.GRAY + "Use summoned items to buy equipment and upgrades.");
+                lst.add(ChatColor.GRAY + "If you die its Game over - no respawns!");
+                itemMeta.setLore(lst);
+                break;
+            }
+            case ("full_iron_armour"): {
+                lst.add(ChatColor.GRAY + "First player to wear a full set of iron armour wins!");
+                lst.add(ChatColor.GRAY + "Will you craft your armour, or steal it off others???");
+                lst.add(ChatColor.GRAY + "Use shop items to cause chaos and mischief!");
+                itemMeta.setLore(lst);
+                break;
+            }
+            case ("creative"): {
+                lst.add(ChatColor.GRAY + "Join our creative mode server.");
+                lst.add(ChatColor.GRAY + "Claim your own plot to start building.");
+                lst.add(ChatColor.GRAY + "Your imagination is the limit!");
+                itemMeta.setLore(lst);
+                break;
+            }
+            case ("1.8 smp"): {
+                lst.add(ChatColor.GRAY + "Join our 1.8 survival multiplayer server.");
+                lst.add(ChatColor.GRAY + "Claim your own plot and build a house.");
+                lst.add(ChatColor.GRAY + "Play how you want - mine, farm or build.");
+                lst.add(ChatColor.GRAY + "Go kill the Enderdragon! -The end resets regularly.");
+                itemMeta.setLore(lst);
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+
     }
 }

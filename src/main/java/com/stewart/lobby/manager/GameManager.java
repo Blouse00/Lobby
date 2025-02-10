@@ -44,12 +44,36 @@ public class GameManager {
                 setUpGames();
             }
         }, 60L);
-        Bukkit.getScheduler().scheduleSyncRepeatingTask(main, new Runnable() {
-            @Override
-            public void run() {
-                CheckAutoJoinPlayers();
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(main, () -> CheckAutoJoinPlayers(), 60, 20);
+
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(main, () -> checkBedwarsServersOnline(), 600, 600);
+    }
+
+    private void checkBedwarsServersOnline() {
+       // System.out.println("checkBedwarsServersOnline servers = " + bedwarsServerList.size());
+
+        // A list for the sockNames of any servers that are no longer reachable
+        List<String> sockNamesToRemove = new ArrayList<>();
+
+        // Fill the list by checking each gameServer
+        for (GameServer gameServer : bedwarsServerList) {
+            if (!gameServer.checkIsOnline()) {
+             //   System.out.println("bedwars server was offline");
+                // offline
+                sockNamesToRemove.add(gameServer.getSockName());
+            } else {
+              //  System.out.println("bedwars server was online");
             }
-        }, 60, 20);
+        }
+
+        // loop through the list of sockNames of servers that are no longer available
+        for (String sockName : sockNamesToRemove) {
+            // remove them from the list of available servers
+            System.out.println("Game server list (size)" + bedwarsServerList.size());
+            bedwarsServerList.removeIf(obj -> obj.getSockName().equals(sockName));
+            System.out.println("Removed offline server " + sockName + " from the game server list (size)" + bedwarsServerList.size());
+        }
+
     }
 
     private void CheckAutoJoinPlayers() {
@@ -74,7 +98,7 @@ public class GameManager {
         }
     }
 
-    public void sendPlayerToBestServer(UUID uuid) {
+    public boolean sendPlayerToBestServer(UUID uuid) {
         System.out.println("sendPlayerToBestServer");
         if (Bukkit.getPlayer(uuid) != null) {
             AutoGameSelector autoGameSelector = new AutoGameSelector(main);
@@ -86,8 +110,16 @@ public class GameManager {
             Integer slot = mapGameNameSlot.get(gameMostLikelyToStart);
             System.out.println("slot is " + slot);
             // use existing code to send player to that game
-            gameChosenFromInventory(player, slot);
+            if (slot != null) {
+                gameChosenFromInventory(player, slot);
+                return true;
+            } else {
+                Bukkit.getPlayer(uuid).sendMessage(ChatColor.RED + "All games are busy, please try again soon!");
+                return false;
+            }
+
         }
+        return false;
     }
 
     // should get rid of any npcs already in the map, before more are added.  not sure about this though
@@ -108,14 +140,17 @@ public class GameManager {
     }
 
     public void setUpGames() {
-        String[]  arrSubtypes = {"assault", "smp", "fia", "icewars", "creative"};
+        String[]  arrSubtypes = {"assault", "smp", "fia", "icewars", "monster_solo",  "monster_duo",  "monster_quad", "monster_one_team"};
         // first loop through each game type
         for (String s : arrSubtypes) {
+            System.out.println("game name " + s);
             // eg 'bedwars_solo'
             String gameName = gameConfig.getString( s + ".name");
             String texture = gameConfig.getString( s + ".npc-skin-texture");
             String signature = gameConfig.getString( s + ".npc-skin-signature");
             String nameColour = gameConfig.getString(s + ".npc-name-colour");
+           // System.out.println("sig " + signature);
+          //  System.out.println("text" + texture);
             Material material = Material.DIAMOND_BLOCK;
             int inventorySocket = -1;
             if (gameConfig.contains(s + ".npc-name-colour")) {
@@ -133,17 +168,22 @@ public class GameManager {
                     (float) gameConfig.getDouble(s + ".npc-pitch"));
 
             Game game   = new Game(main, gameName, location, texture, signature, nameColour, material, inventorySocket );
-            game.spawnNPC();
+
+            if (s.startsWith("monster") == false) {
+                game.spawnNPC();
+            }
+
             gameList.add(game);
 
-            if (s.equals("smp")) {
-                game.updateGameServer(gameConfig.getString(s + ".sockname"),
+            /*if (s.equals("smp")) {
+                game.updateGameServer(gameConfig.getString(s + ".sockName"),
                         "RECRUITING", 1, 10);
-            } else if (s.equals("creative")) {
-                game.updateGameServer(gameConfig.getString(s + ".sockname"),
+            } else */
+           /* if (s.equals("creative")) {
+                game.updateGameServer(gameConfig.getString(s + ".sockName"),
                         "RECRUITING", 1, 10);
-            } else {
-                System.out.println("game name " + s);
+            } else {*/
+
                 for (String s1 : gameConfig.getConfigurationSection(s + ".servers").getKeys(false)) {
                     SockExchangeApi sockExchangeApi = main.getSockExchangeApi();
                     String sockName = gameConfig.getString(s + ".servers." + s1 + ".sockName");
@@ -156,7 +196,8 @@ public class GameManager {
                             System.out.println("server is online requesting status");
                             // server is online
                             System.out.flush();
-                            String inputString = "Lobby.request-status." + sockName;
+                            // adding the s here is required for the monster game, so it knows which one (solo etc.) we are checking for
+                            String inputString = "Lobby.request-status." + sockName + "." + s;
                             System.out.println("Requesting game server status: " + sockName + ", msg:" + inputString);
                             SockExchangeApi api = SockExchangeApi.instance();
                             byte[] byteArray = inputString.getBytes();
@@ -166,7 +207,7 @@ public class GameManager {
                             System.out.println("server is offline " + sockName);
                         }
                     }
-                }
+              //  }
             }
         }
     }
@@ -231,7 +272,9 @@ public class GameManager {
         }
     }
 
-    public void updateBedwarsGameServer(String sockName, String status, int currentPlayers, int teamSize) {
+
+
+    public void updateBedwarsGameServer(String sockName, String status, int currentPlayers, int maxPlayers, int teamSize) {
         // find the server to be updated
         System.out.println("Updating/creating bedwars server object status after sock message from its server.");
         GameServer bedwarsServer = getBedwarsServerBySockName(sockName);
@@ -240,12 +283,13 @@ public class GameManager {
                     status + ", numPlayers: " + currentPlayers);
             // team size determines the servers game type (solos, duos or quads)
             // it also determines the max number of players.
-            bedwarsServer.updateDetails(status, currentPlayers, teamSize);
+            bedwarsServer.updateDetails(status, currentPlayers, teamSize, maxPlayers);
         } else {
             System.out.println("Bedwar server object not found, creating a new one, setting teamSize: " + teamSize +
-                    ", status; " + status + ", numPlayers: " + currentPlayers);
-            bedwarsServer = new GameServer(this, sockName, status, currentPlayers, teamSize);
+                    ", status; " + status + ", numPlayers: " + currentPlayers + " sock " +sockName);
+            bedwarsServer = new GameServer(this, sockName, status, currentPlayers, teamSize, maxPlayers);
             bedwarsServerList.add(bedwarsServer);
+            System.out.println("num bedwars servres = " + bedwarsServerList.size());
         }
         if (teamSize ==1) {
             Game bedwarsGame = getGameByName("Bedwars_solo");
@@ -381,9 +425,9 @@ public class GameManager {
             }
     }
 
-    public void updateGameServer(String sockName,  String status, int currentPlayers, int maxPlayers) {
+     public void updateGameServer(String sockName,  String status, int currentPlayers, int maxPlayers, String gameType) {
         Game game = null;
-        System.out.printf("update gane server called");
+        System.out.printf("update gane server called " + sockName + " " + gameType);
         if (sockName.startsWith("assault")) {
             System.out.println("Updating assault course server object");
             game = getGameByName("Assault_Course");
@@ -393,8 +437,24 @@ public class GameManager {
             game = getGameByName("Full_Iron_Armour");
         }
         if (sockName.startsWith("icewars")) {
-            System.out.println("Updating icewars armour server object");
+            System.out.println("Updating icewars server object");
             game = getGameByName("BETA_Icewars");
+        }
+        if (sockName.startsWith("smp")) {
+            System.out.println("Updating smp server object");
+            game = getGameByName("1.8 SMP");
+        }
+        if (sockName.startsWith("creative")) {
+            System.out.println("Updating creative server object");
+            game = getGameByName("creative");
+        }
+        if (sockName.startsWith("monster")) {
+            System.out.println("Updating fiend fight " + gameType + " server object");
+            if (gameType.equals("one_team")) {
+                game = getGameByName("fiend_fight_one_team");
+            } else {
+                game = getGameByName("fiend_fight_" + gameType + "s");
+            }
         }
         if (game != null) {
             System.out.println("game found sock name: " + sockName + ", status " + status);
@@ -429,6 +489,7 @@ public class GameManager {
             return null;
         }
         for (Game game : gameList) {
+         //   System.out.println("------------ get game by name loop - " + game.getGameName());
             if (game.getGameName().equalsIgnoreCase(name)) {
                 return game;
             }
@@ -443,7 +504,7 @@ public class GameManager {
             return null;
         }
         for (Game game : gameList) {
-           // System.out.println("passed name: " + name + ", game name: " + game.getGameName());
+            System.out.println("passed name: " + name + ", game name: " + game.getGameName());
             if (name.contains(game.getGameName())) {
                 return game;
             }
@@ -454,11 +515,14 @@ public class GameManager {
     public void gameChosenFromInventory(Player player, int slot) {
         for (Game game : gameList) {
             if (game.getInventorySlot() == slot) {
-                player.closeInventory();
-                if (game.isPlayerInQueue(player.getUniqueId())) {
-                    player.sendMessage("You are already in the queue for this game!");
-                } else {
-                    game.playerJoinRequest(player, false);
+                if ((game.getGameName().toLowerCase().startsWith("fiend") && player.hasPermission("group.admin")) ||
+                        !game.getGameName().toLowerCase().startsWith("fiend")) {
+                    player.closeInventory();
+                    if (game.isPlayerInQueue(player.getUniqueId())) {
+                        player.sendMessage("You are already in the queue for this game!");
+                    } else {
+                        game.playerJoinRequest(player, false);
+                    }
                 }
                 return;
             }
@@ -498,6 +562,7 @@ public class GameManager {
     // the code for the auto game selector returns the game name, I need to map that to the slot so I can use existing
     // code to send player to the game
     private void addGameToNameSlotMap(String name, int slot) {
+        System.out.println("Adding game to mapGameNameSlot");
         switch (name){
             case("assault"):
                 mapGameNameSlot.put("Assault_Course", slot);
@@ -534,6 +599,8 @@ public class GameManager {
     public void RemovePlayerFromAutoJoin(UUID uuid) {
         lstPlayersForAutoJoin.remove(uuid);
     }
+
+    public Lobby getMain() {return main;}
 
 }
 

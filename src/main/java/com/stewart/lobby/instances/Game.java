@@ -1,26 +1,28 @@
 package com.stewart.lobby.instances;
 
-import com.avaje.ebeaninternal.server.type.RsetDataReader;
+import com.gmail.tracebachi.SockExchange.Spigot.SockExchangeApi;
+import com.gmail.tracebachi.SockExchange.SpigotServerInfo;
 import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import com.stewart.lobby.Lobby;
+import com.stewart.lobby.manager.ConfigManager;
 import com.stewart.lobby.manager.GameManager;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import de.simonsator.partyandfriends.spigot.api.pafplayers.PAFPlayer;
 import de.simonsator.partyandfriends.spigot.api.pafplayers.PAFPlayerManager;
 import de.simonsator.partyandfriends.spigot.api.party.PartyManager;
 import de.simonsator.partyandfriends.spigot.api.party.PlayerParty;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.trait.SkinTrait;
-import net.minecraft.server.v1_8_R3.ItemStack;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.graalvm.compiler.asm.aarch64.AArch64Assembler;
+import org.stewart.bb_api.instance.CustomPlayer;
 
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -60,53 +62,60 @@ public class Game {
         this.nameColour = nameColour;
         this.material = material;
         this.inventorySlot = inventorySlot;
+
+        // after 1 minute check all game servers are online then every 20 seconds after that
+        // TODO change times from 10 seconds for testing to 1m (1200) & 30sec (600)
+
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(main, () -> checkGameServersOnline(), 600, 600);
     }
 
     public void spawnNPC() {
 
-        // https://mineskin.org
-      //  String texture = "ewogICJ0aW1lc3RhbXAiIDogMTYxNzYyNjM4OTk0OSwKICAicHJvZmlsZUlkIiA6ICI1ZTIyODhjMzFlOGI0ZTA3YTY0MTc1NTRkNzY4ZTE3NiIsCiAgInByb2ZpbGVOYW1lIiA6ICJNcl9CM25fIiwKICAic2lnbmF0dXJlUmVxdWlyZWQiIDogdHJ1ZSwKICAidGV4dHVyZXMiIDogewogICAgIlNLSU4iIDogewogICAgICAidXJsIiA6ICJodHRwOi8vdGV4dHVyZXMubWluZWNyYWZ0Lm5ldC90ZXh0dXJlLzk4MjNkYzk5MDk1ZWY2MzQzODA3ZmY0MDQ5M2JjYmExMjBkYjcyOWY0YThmMjNkNmZmOTU3ZTY5MDk4NjYxOGQiCiAgICB9CiAgfQp9";
-      //  String signature ="DQGAVLoOw9ykX3dTbc+/HL1OhPcmj1I3Xo97PuBrp00Df0njEYethdevSON9tBrZqJmR3OP4Ret1p1617pZ2tCfrYv0DSFXsADufkD5nzKxDoxaFvZGMhG9uUgb7F+72FQmu4JGbmA+js2Du2qMDlxJsvd9h+la/zbO1SXgqR2HRSS/BpxRzbsiw7f5ySdLSARYfHQxb/SO2E1cA8wDzhbyoXsnXkHykgVyg+dyR7L2+QBljYcrZjqkisayGYVfA0AWZQWzm6dWChUDV72/9QI6Ry0pQ69w1VoOu7xXy2aD8vGAl9km0tOPpYjH0qhD6RBt2hgeU6YP2JPHkIvAzlcClm4Q7NxjeBOd3I5+WpghjA9U9EzSQtKrZQHjoOqeuFtsvM6qmFfxLhWDL4VhuxjzBYZzxGY3676KnsPKa7+R8SqtEPl6wG7wUjKHP7PW+9anhLPL6zzyvRjnp5Pk2tQbTLcI6gV7i4T2FvrJowBEYp/9bHZNFv2+VfMsRUbHx0VXJ/T81jo2j0w11k4T/rMostv+F6ND4y6I7G3D2qL1MsFU9twUCHNLByzc3YTa1UntvaX4yTEwUgvgTW387ZozOWAiJvZ/9fhSX21zvYqKEMMRJSE/TyYzBPvg/wxGwgIvrwnYh0wAJCjQdZeGmdYAYVEiuIzxSWe0Qgk7XTHU=";
-        String npcName = this.nameColour + this.name;
+       String npcName = this.nameColour + this.name;
+       net.citizensnpcs.api.npc.NPC npc =CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
+       SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
+       skin.setSkinPersistent("pjs", signature, texture);
+       npc.spawn(npcSpawnLocation);
 
-        net.citizensnpcs.api.npc.NPC npc =CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
-        SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
-        skin.setSkinPersistent("pjs", signature, texture);
-        npc.spawn(npcSpawnLocation);
-
-        System.out.println("spawning npc for " + name);
-
-
-    /*  *** previous way of making npc manually without citizens plugin
-
-        MinecraftServer nmsServer = ((CraftServer) Bukkit.getServer()).getServer();
-        WorldServer nmsWorld = ((CraftWorld) Bukkit.getWorlds().get(0)).getHandle();
-
-        GameProfile gameProfile = new GameProfile(UUID.randomUUID(), "BWS");
-        gameProfile.getProperties().put("textures", new Property("textures", texture, signature));
-
-        npc = new EntityPlayer(nmsServer, nmsWorld, gameProfile,  new PlayerInteractManager(nmsWorld));
-        npc.teleportTo(npcSpawnLocation,false);
-
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            addNpcForPlayer(online);
-        }*/
+       System.out.println("spawning npc for " + name);
     }
+
+    private void checkGameServersOnline() {
+      //  System.out.println("checkGameServersOnline servers = " +serverList.size());
+
+        // A list for the sockNames of any servers that are no longer reachable
+        List<String> sockNamesToRemove = new ArrayList<>();
+
+        // Fill the list by checking each gameServer
+        for (GameServer gameServer : serverList) {
+           if (!gameServer.checkIsOnline()) {
+        //       System.out.println("server was offline");
+               // offline
+               sockNamesToRemove.add(gameServer.getSockName());
+           } else {
+          //     System.out.println("server was online");
+           }
+        }
+
+        // loop through the list of sockNames of servers that are no longer available
+        for (String sockName : sockNamesToRemove) {
+            // remove them from the list of available servers
+            System.out.println("Game server list (size)" + serverList.size());
+            serverList.removeIf(obj -> obj.getSockName().equals(sockName));
+            System.out.println("Removed offline server " + sockName + " from the game server list (size)" + serverList.size());
+        }
+
+    }
+
 
     // fired when a player right-clicks on this games npc.
     // also when clicking on inventory item
     // also form checking queue
     public void playerJoinRequest(Player player, Boolean fromQueue) {
 
-     /*   if(playersInQueue.containsKey(player.getUniqueId())) {
-            player.sendMessage("You are already in the queue for this game!");
-            return;
-        }*/
+        System.out.println("player join request " + this.getGameName());
 
         boolean allowJoin = true;
-
-        // TODO look at the PAF stuff here again. Peter says a non leader could join the server and then the leader could not,
-        // may be something to do with the from queue variable.
 
         if(!fromQueue) {
             player.sendMessage("Attempting to join " + this.name + "!");
@@ -122,7 +131,9 @@ public class Game {
                             + ChatColor.RED + " leave your party.");
                 } else {
                     for (PAFPlayer p : party.getPlayers()) {
-                        Bukkit.getPlayer(p.getUniqueId()).sendMessage("Attempting to join " + this.name + "!");
+                        if (Bukkit.getPlayer(p.getUniqueId()) != null) {
+                            Bukkit.getPlayer(p.getUniqueId()).sendMessage("Attempting to join " + this.name + "!");
+                        }
                     }
                 }
             }
@@ -141,104 +152,179 @@ public class Game {
                 JoinBedwarsServer(player);
                 return;
             }
-            if (this.name.contains("SMP")) {
-                System.out.println("SMP server join detected");
 
-                main.getGameManager().removePlayerFromQueues(player.getUniqueId(), null);
-                if (!serverList.isEmpty() ) {
-                    try {
-                        System.out.println("Sending player to server");
-
-                        ByteArrayDataOutput out = ByteStreams.newDataOutput();
-                        out.writeUTF("Connect");
-                        // get server name from the sign
-                        out.writeUTF("smp_0");
-                        // teleport the player to the game server, this is done via the bungeecord channel
-                        player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
-                    } catch (Exception ex) {
-                        player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
-                    }
-                }
+            if (this.name.contains("SMP") && !getCanAccessSMP(player)) {
+                System.out.println("Player not eligible for smp");
                 return;
             }
-            if (this.name.contains("Creative")) {
-                System.out.println("Creative server join detected");
-
-                main.getGameManager().removePlayerFromQueues(player.getUniqueId(), null);
-                if (!serverList.isEmpty() ) {
-                    try {
-                        System.out.println("Sending player to server");
-
-                        ByteArrayDataOutput out = ByteStreams.newDataOutput();
-                        out.writeUTF("Connect");
-                        // get server name from the sign
-                        out.writeUTF("creative");
-                        // teleport the player to the game server, this is done via the bungeecord channel
-                        player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
-                    } catch (Exception ex) {
-                        player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
-                    }
+            // player.sendMessage("Attempting to join " + this.getGameName() + "!");
+            // loop through the servers whose status is recruiting.
+            // make a list of possible server sockNames
+            HashMap<String, Integer> lstAvailable = new HashMap<>();
+            for (GameServer gameServer : serverList) {
+                System.out.println("status: " + gameServer.getGameStatus() + " . p: " + gameServer.getCurrentPlayers() +
+                        " max " + maxPlayers);
+                if ((gameServer.getGameStatus().equals("RECRUITING") || gameServer.getGameStatus().equals("COUNTDOWN"))
+                        && gameServer.getCurrentPlayers() < maxPlayers) {
+                    System.out.println("adding eligible server to list of possibles");
+                    // Add this server to the list of possible player targets
+                    lstAvailable.put(gameServer.getSockName(), gameServer.getCurrentPlayers());
                 }
-                return;
             }
-            if (serverList.isEmpty()) {
-                System.out.println("player tried to join game but no servers found");
-                player.sendMessage("No game servers found, please try again later.");
+            System.out.println(lstAvailable.size() + " possible server(s) found");
+            if (lstAvailable.isEmpty()) {
+                // no servers are recruiting, put the player in the queue.
+                addPlayerToQueue(player, true);
+                System.out.println("Servers all busy, adding player to queue");
             } else {
-                // player.sendMessage("Attempting to join " + this.getGameName() + "!");
-                // loop through the servers whose status is recruiting.
-                // make a list of possible server sockNames
-                HashMap<String, Integer> lstAvailable = new HashMap<>();
-                for (GameServer gameServer : serverList) {
-                    System.out.println("status: " + gameServer.getGameStatus() + " . p: " + gameServer.getCurrentPlayers() +
-                            " max " + maxPlayers);
-                    if ((gameServer.getGameStatus().equals("RECRUITING") || gameServer.getGameStatus().equals("COUNTDOWN"))
-                            && gameServer.getCurrentPlayers() < maxPlayers) {
-                        System.out.println("adding eligible server to list of possibles");
-                        // Add this server to the list of possible player targets
-                        lstAvailable.put(gameServer.getSockName(), gameServer.getCurrentPlayers());
+                // loop through possible servers & send player to the fullest
+                Integer p = -1;
+                String sockNameMostPlayers = "";
+                for (Map.Entry<String, Integer> available : lstAvailable.entrySet()) {
+                    if (available.getValue() > p) {
+                        p = available.getValue();
+                        sockNameMostPlayers = available.getKey();
                     }
                 }
-                System.out.println(lstAvailable.size() + " possible server(s) found");
-                if (lstAvailable.isEmpty()) {
-                    // no servers are recruiting, put the player in the queue.
-                    addPlayerToQueue(player, true);
-                    System.out.println("Servers all busy, adding player to queue");
-                } else {
-                    // loop through possible servers & send player to the fullest
-                    Integer p = -1;
-                    String sockNameMostPlayers = "";
-                    for (Map.Entry<String, Integer> available : lstAvailable.entrySet()) {
-                        if (available.getValue() > p) {
-                            p = available.getValue();
-                            sockNameMostPlayers = available.getKey();
+                System.out.println("server with most players (" + p + ") is " + sockNameMostPlayers);
+                // sockNameMostPlayers will be the sockName of the server with the most players
+                // send the player there
+                main.getGameManager().removePlayerFromQueues(player.getUniqueId(), null);
+                if (player != null) {
+                    if (this.name.toLowerCase().contains("fiend")) {
+                        System.out.println("Checking if player is in a party");
+                        PAFPlayer pafPlayer = PAFPlayerManager.getInstance().getPlayer(player.getUniqueId());
+                        PlayerParty party = PartyManager.getInstance().getParty(pafPlayer);
+                        String commaSeparatedPlayerNames = player.getName();
+                        if (party != null) {
+                            System.out.println("Player is in a party");
+                            // let the monster server know what game type all the party players will be joining
+                            StringBuilder str = new StringBuilder();
+                            for (PAFPlayer partyPlayer : party.getAllPlayers()) {
+                                str.append(partyPlayer.getName());
+                                str.append(",");
+                            }
+                            // remoe last comma
+                            commaSeparatedPlayerNames = str.toString();
+                            commaSeparatedPlayerNames = commaSeparatedPlayerNames.substring(0, commaSeparatedPlayerNames.length() - 1);
                         }
+                        if (warnServerApproachingPlayers(commaSeparatedPlayerNames, sockNameMostPlayers)) {
+                            // after a second send the player to the server
+                            String finalSockNameMostPlayers = sockNameMostPlayers;
+                            Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> sendPlayerToServer(player, finalSockNameMostPlayers), 20L);
+                        }
+                    } else {
+                        // not monster game - just send them to the server
+                        sendPlayerToServer(player, sockNameMostPlayers);
                     }
-                    System.out.println("server with most players (" + p + ") is " + sockNameMostPlayers);
-                    // sockNameMostPlayers will be the sockName of the server with the most players
-                    // send the player there
-                    main.getGameManager().removePlayerFromQueues(player.getUniqueId(), null);
-                    try {
-                        System.out.println("Sending player to server");
-                        ByteArrayDataOutput out = ByteStreams.newDataOutput();
-                        out.writeUTF("Connect");
-                        // get server name from the sign
-                        out.writeUTF(sockNameMostPlayers);
-                        // teleport the player to the game server, this is done via the bungeecord channel
-                        player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
 
-                    } catch (Exception ex) {
-                        player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
-                    }
                 }
             }
             }
         }
     }
 
-    private void JoinSMPServer(Player player) {
+    private boolean warnServerApproachingPlayers(String commaSeparatedPlayerNames,
+                                              String sockName) {
+        SockExchangeApi sockExchangeApi = main.getSockExchangeApi();
+        SpigotServerInfo spigotServerInfo = sockExchangeApi.getServerInfo(sockName);
+        if (spigotServerInfo == null) {
+            System.out.println("server not found " + sockName);
+            return false;
+        } else {
+            if (spigotServerInfo.isOnline()) {
+                System.out.flush();
+                String inputString = "Lobby.players-joining." + name + "." + commaSeparatedPlayerNames;
+                System.out.println("Game.warnServerApproachingPlayers: " + inputString);
+                SockExchangeApi api = SockExchangeApi.instance();
+                byte[] byteArray = inputString.getBytes();
+                api.sendToServer("LobbyChannel", byteArray, sockName);
+                return true;
+            } else {
+                // server is offline
+                System.out.println("server is offline " + sockName);
+                return false;
+            }
+        }
+    }
 
+    private void sendPlayerToServer(Player player, String sockNameMostPlayers) {
+        try {
+            System.out.println("Sending player to server");
+            ByteArrayDataOutput out = ByteStreams.newDataOutput();
+            out.writeUTF("Connect");
+            // get server name from the sign
+            out.writeUTF(sockNameMostPlayers);
+            // teleport the player to the game server, this is done via the bungeecord channel
+            main.getJda().getGuildById(ConfigManager.getDiscordServer())
+                    .getTextChannelById(ConfigManager.getDiscordChannel())
+                    .sendMessage("Sending " + player.getName() + " to " + sockNameMostPlayers).queue();
+            player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
 
+            if (ConfigManager.getAnnounceGameJoin()) {
+                Bukkit.broadcastMessage(ChatColor.BLUE + player.getName() + ChatColor.WHITE + " has joined " + ChatColor.BLUE + getGameName());
+            }
+
+        } catch (Exception ex) {
+            player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
+        }
+    }
+
+    private boolean getCanAccessSMP(Player player) {
+        int smpAccess = main.getBb_api().getGenericQueries().getIntValue("bb_players", "player_uuid",
+                player.getUniqueId().toString(), "smp_access");
+        System.out.println("smp access == " + smpAccess);
+        // 0 = karma must be >= 6, 1 = allow, >1 = deny
+        if (smpAccess == 1) {
+            return true;
+        }
+        if (smpAccess == 0) {
+            // karma must be over 6 or a paid member/mod
+            if (player.hasPermission("group.mod") || player.hasPermission("group.supporter")) {
+                System.out.println("smp join is mod or supporter");
+                return true;
+            }
+            CustomPlayer customPlayer = main.getBb_api().getPlayerManager().getCustomPlayer(player.getUniqueId());
+            int playerKarma = customPlayer.getPlayerKarma().getCurrentKarma();
+            if (playerKarma >= 6) {
+                return true;
+            } else {
+                // anything else (should be 2) - deny
+                player.sendMessage(getDecorativeRow());
+                player.sendMessage(ChatColor.RED + "You need at least 6 karma to join our SMP server");
+                player.sendMessage("Play our mini-games to earn Karma, 1 game played = 1 karma - or get other players to give you karma");
+                player.sendMessage("Use the command " + ChatColor.YELLOW + "/karma help" + ChatColor.WHITE + " for more information.");
+                player.sendMessage(getDecorativeRow());
+                String versionMessage = "Player " + player.getName() + " tried to join SMP but only has " + playerKarma + " karma";
+                main.getJda().getGuildById(ConfigManager.getDiscordServer())
+                        .getTextChannelById(ConfigManager.getDiscordChannel())
+                        .sendMessage(versionMessage).queue();
+                return false;
+            }
+        }
+        // anything else (should be 2) - deny
+        player.sendMessage(getDecorativeRow());
+        player.sendMessage(ChatColor.RED + "You have been BLOCKED from joining the SMP server");
+        player.sendMessage("Contact us at " + ChatColor.BLUE + "https://bashybashy.com" + ChatColor.WHITE +
+                " or on our discord " + ChatColor.BLUE + "https://discord.gg/Ypx4kTRbHp" + ChatColor.WHITE +
+                " to have the block removed");
+        player.sendMessage(getDecorativeRow());
+        // alert discord
+        String versionMessage = "Player " + player.getName() + " tried to join SMP but is BLOCKED";
+            main.getJda().getGuildById(ConfigManager.getDiscordServer())
+            .getTextChannelById(ConfigManager.getDiscordChannel())
+            .sendMessage(versionMessage).queue();
+        return false;
+    }
+
+    private String getDecorativeRow() {
+        StringBuilder sb  = new StringBuilder();
+        for(int i = 0; i < 31; ++i) {
+            //  sb.append(ChatColor.BOLD + "" + ChatColor.RED + "<").append(ChatColor.BLUE + "<").append(ChatColor.YELLOW + "<");
+            //  sb.append(ChatColor.YELLOW + ">").append(ChatColor.BLUE + ">").append(ChatColor.RED + ">");
+            sb.append(ChatColor.YELLOW + "*").append(ChatColor.BLACK + "*");
+        }
+        return sb.toString();
     }
 
     private void JoinBedwarsServer(Player player) {
@@ -307,6 +393,9 @@ public class Game {
             // get server name from the sign
             out.writeUTF(sockName);
             // teleport the player to the game server, this is done via the bungeecord channel
+            main.getJda().getGuildById(ConfigManager.getDiscordServer())
+                    .getTextChannelById(ConfigManager.getDiscordChannel())
+                    .sendMessage("Sending " + player.getName() + " to " + sockName).queue();
             player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
      /*       if (party != null) {
                 AddPartyPlayersToPartyQueue(party, sockName);
@@ -315,33 +404,6 @@ public class Game {
             player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
         }
     }
-
-  /*  private void AddPartyPlayersToPartyQueue(PlayerParty party, String serverSockName) {
-        System.out.println("Adding party players (" + party.getPlayers().size() + ") to queue");
-        for (PAFPlayer player : party.getPlayers()) {
-            System.out.println("Party player name " + player.getName());
-            AddIndivdualPartyMemberToQueue(player.getUniqueId(), serverSockName);
-
-        }
-        System.out.println("Add party leader to list");
-        AddIndivdualPartyMemberToQueue(party.getLeader().getUniqueId(), serverSockName);
-
-    } */
-
-   /* private void AddIndivdualPartyMemberToQueue(UUID uuid, String serverSockName) {
-        if (main.getServer().getPlayer(uuid) != null) {
-            // then check the player is not already in the partyQueueList
-            if (partyPlayerQueue.containsKey(uuid) == false) {
-                System.out.println("Adding Party player " + Bukkit.getPlayer(uuid).getName() + " to partyPlayerQueue");
-                // add them to the list
-                partyPlayerQueue.put(uuid, serverSockName);
-            } else {
-                System.out.println("Party player " + Bukkit.getPlayer(uuid).getName() + " is already in the partyPlayerQueue");
-            }
-        } else {
-            System.out.println("Party player " + Bukkit.getPlayer(uuid).getName() + " is not on this server");
-        }
-    }  */
 
     public void addPlayerToQueue(Player player, boolean sendMessage) {
         if (!playersInQueue.containsKey(player.getUniqueId())) {
@@ -402,12 +464,24 @@ public class Game {
             // team size is not required for non bedwars games, may need to add it back in
             // if we make other team games
             // it also determines the max number of players.
-            gameServer.updateDetails(status, currentPlayers, 1);
+            // if the game status is live or finishing just get rid of the gameserver, lobby only needs to know about
+            // recruiting/countdown servers
+            if (status.equals("RECRUITING") || status.equals("COUNTDOWN")) {
+                gameServer.updateDetails(status, currentPlayers, 1, maxPlayers);
+            } else {
+                System.out.println("Game.updateGameServer removing server from list as it is no longer recruiting");
+                serverList.remove(gameServer);
+            }
         } else {
-            System.out.println("Game server object not found, creating a new one, setting" +
-                    " status; " + status + ", numPlayers: " + currentPlayers);
-            gameServer = new GameServer(main.getGameManager(), sockName, status, currentPlayers, 1);
-            serverList.add(gameServer);
+            if (status.equals("RECRUITING") || status.equals("COUNTDOWN")) {
+                System.out.println("Game server object not found, creating a new one, setting" +
+                        " status; " + status + ", numPlayers: " + currentPlayers + " sockname " + sockName);
+                gameServer = new GameServer(main.getGameManager(), sockName, status, currentPlayers, 1, maxPlayers);
+                serverList.add(gameServer);
+            } else {
+                System.out.println("Game.updateGameServer server not found but not adding as it is no longer recruiting");
+            }
+            System.out.println("num gameServers = " + serverList.size());
         }
     }
 
@@ -424,7 +498,6 @@ public class Game {
 
     public List<GameServer> getServerList() { return  this.serverList;}
 
-
     public Timestamp getEarliestTimestampFromQueue() {
         if (playersInQueue.isEmpty()) {
             return null;
@@ -439,14 +512,8 @@ public class Game {
         }
     }
 
-
     public void removePlayerFromQueue(UUID uuid) {
         playersInQueue.remove(uuid);
-    }
-
-    public void addServerToList(GameServer gameServer) {
-        serverList.add(gameServer);
-        System.out.println("Game name: " + name + ". server list size: " + serverList.size());
     }
 
     public void setMaxPlayers(int maxPlayers) {this.maxPlayers = maxPlayers;}

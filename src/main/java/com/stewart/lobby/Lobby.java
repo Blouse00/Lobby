@@ -12,10 +12,18 @@ import com.stewart.lobby.manager.ConfigManager;
 import com.stewart.lobby.manager.GameManager;
 import com.stewart.lobby.manager.LobbyManager;
 import com.stewart.lobby.manager.RuleLobbyManager;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.Activity;
+import net.dv8tion.jda.internal.utils.JDALogger;
 import org.bukkit.Bukkit;
 import org.bukkit.Difficulty;
+import org.bukkit.Location;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.stewart.bb_api.Bb_api;
+import org.stewart.bb_api.utils.TempPromos;
+
+import javax.security.auth.login.LoginException;
 import java.util.function.Consumer;
 
 public final class Lobby extends JavaPlugin {
@@ -26,11 +34,28 @@ public final class Lobby extends JavaPlugin {
     private RuleLobbyManager ruleLobbyManager;
     private final Bb_api bb_api = (Bb_api) Bukkit.getServer().getPluginManager().getPlugin("bb_api");
     private ReceivedMessageNotifier messageNotifier;
+    private JDA jda;
+
+  //  private TempPromos tempPromos;
 
     @Override
     public void onEnable()  {
         // load the config file
         ConfigManager.setupConfig(this);
+
+        JDALogger.setFallbackLoggerEnabled(false);
+        JDABuilder builder = JDABuilder.createDefault(ConfigManager.getDiscordToken());
+        builder.setActivity(Activity.watching("Your server"));
+
+        try {
+            jda = builder.build().awaitReady();
+            jda.getGuildById(ConfigManager.getDiscordServer()).getTextChannelById(ConfigManager.getDiscordChannel()).sendMessage("testing").queue();
+            System.out.println("discord bot connected");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
 
         if (bb_api == null) {
             System.out.println("---------------------------------------------API IS NULL------------------------");
@@ -43,6 +68,8 @@ public final class Lobby extends JavaPlugin {
         gameManager = new GameManager(this);
         lobbyManager = new LobbyManager(this);
         ruleLobbyManager = new RuleLobbyManager(this);
+
+     //   tempPromos = bb_api.startTempPromos(new Location(Bukkit.getWorld("world"), 22.5, 57.5, -22.5));
 
         Bukkit.getWorld("world").setDifficulty(Difficulty.PEACEFUL);
 
@@ -82,11 +109,21 @@ public final class Lobby extends JavaPlugin {
                 if (arrReceived[1].equals("report-status") ) {
                     // sock name for bedwars will be eg bedwars_0, bedwars_1
                     if (arrReceived[0].toLowerCase().contains("bedwars")) {
-                        gameManager.updateBedwarsGameServer(arrReceived[0],  arrReceived[2],
-                                Integer.parseInt(arrReceived[3]), Integer.parseInt((arrReceived[5])));
-                    } else {
+                        // sock status currentPlayers teamSize
+                        gameManager.updateBedwarsGameServer(arrReceived[0], arrReceived[2],
+                                Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), Integer.parseInt(arrReceived[5]));
+                    } else if (arrReceived[0].toLowerCase().contains("monster")) {
+                        // for monster the same sockname could have multiple game types (quad solo duo)
+                        // will pass sockname status currnetPlayers maxPlayers, gameType
+
+                        System.out.println("/****************** " + arrReceived[0] + " " +  arrReceived[2] + " " +
+                                Integer.parseInt(arrReceived[3]) + " " + Integer.parseInt(arrReceived[4]) + " " + arrReceived[5]);
                         gameManager.updateGameServer(arrReceived[0],  arrReceived[2],
-                                Integer.parseInt(arrReceived[3]), Integer.parseInt((arrReceived[4])));
+                                 Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), arrReceived[5]);
+                    } else {
+                        // sockname status currentPlayers maxPlayers
+                        gameManager.updateGameServer(arrReceived[0],  arrReceived[2],
+                                Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), "");
                     }
 
                 }
@@ -118,5 +155,7 @@ public final class Lobby extends JavaPlugin {
     }
 
     public Bb_api getBb_api() {return bb_api;}
+
+    public JDA getJda() { return jda;}
 
 }

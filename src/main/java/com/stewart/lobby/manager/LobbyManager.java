@@ -31,6 +31,7 @@ public class LobbyManager {
     private int gameSeconds;
     // keeps a list of all people currently spawn protected and the game time it started
     private final HashMap<UUID, Integer> playerSpawnProtect = new HashMap<>();
+    private final HashMap<UUID, Integer> playerPortalling = new HashMap<>();
     private  int particleIterator = 19; // Task will run 10 times.
     private BukkitTask particleTask = null;
     private final List<UUID> lstNoPvp;
@@ -42,8 +43,8 @@ public class LobbyManager {
         feetBlockY = main.getConfig().getInt("feet-block-y");
         startClock();
         lstNoPvp = new ArrayList<>();
-        noPvpTopCorner = new Location(Bukkit.getWorld("world"), 12.5, 53, 37);
-        noPvpBottomCorner = new Location(Bukkit.getWorld("world"), -13, 42, -8.5 );
+        noPvpTopCorner = new Location(Bukkit.getWorld("world"), 24, 58, -10);
+        noPvpBottomCorner = new Location(Bukkit.getWorld("world"), 1, 48, -33 );
         spawnVoteMaster();
         spawnDiscordNPC();
     }
@@ -57,7 +58,7 @@ public class LobbyManager {
                 net.citizensnpcs.api.npc.NPC npc = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
                 SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
                 skin.setSkinPersistent("vote", ConfigManager.getVotesSkinSignature(), ConfigManager.getVotesSkinTexture());
-                npc.spawn(new Location(Bukkit.getWorld("world"), -7.5, 45, 18.5, -156, -17));
+                npc.spawn(new Location(Bukkit.getWorld("world"), 9.5, 51, -10.5, 180, -17));
 
                 System.out.println("spawning npc for votes");
             }
@@ -74,7 +75,7 @@ public class LobbyManager {
                 net.citizensnpcs.api.npc.NPC npc = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
                 SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
                 skin.setSkinPersistent("discord", ConfigManager.getDiscordSkinSignature(), ConfigManager.getDiscordSkinTexture());
-                npc.spawn(new Location(Bukkit.getWorld("world"), 0.5, 48, 0.5, -120, -10));
+                npc.spawn(new Location(Bukkit.getWorld("world"), 1.5, 51, -18.5, -90, -10));
 
                 System.out.println("spawning npc for discord");
             }
@@ -104,6 +105,8 @@ public class LobbyManager {
 
         // removes players from the spawn protect list who has been there 5 seconds or more
         playerSpawnProtect.entrySet().removeIf(e -> e.getValue() + 4 < gameSeconds );
+        // removes players from the portallingt list who has been there 4 seconds or more
+        playerPortalling.entrySet().removeIf(e -> e.getValue() + 3 < gameSeconds );
 
         gameSeconds += 1;
     }
@@ -112,6 +115,13 @@ public class LobbyManager {
     // damage from another player
     public boolean playerSpawnProtected(Player player) {
         return playerSpawnProtect.containsKey(player.getUniqueId());
+    }
+    public boolean isPlayerPortalling(Player player) {
+        return playerPortalling.containsKey(player.getUniqueId());
+    }
+
+    public void addPlayerPortalling(Player player) {
+        playerPortalling.put(player.getUniqueId(), gameSeconds);
     }
 
     public void playerKilled(Player died) {
@@ -122,7 +132,7 @@ public class LobbyManager {
             died.removePotionEffect(effect.getType());
         }
 
-        Location location = ConfigManager.getLobbySpawn();
+        Location location = ConfigManager.getLobbyReSpawn();
         died.teleport(location);
         sendMessage(died.getName() + " died!");
         playerSpawnProtect.put(died.getUniqueId(), gameSeconds);
