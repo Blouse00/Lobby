@@ -109,17 +109,20 @@ public class AutoGameSelector {
     }
 
     List<String> definedOrder = // define your custom order
-            Arrays.asList("Assault_Course", "Full_Iron_Armour", "Icewars", "BETA_Icewars", "Bedwars_solo", "Bedwars_duos", "Bedwars_quads");
+            Arrays.asList("fiend_fight_solo","fiend_fight_one_team","fiend_fight_duo","fiend_fight_quad", "Assault_Course", "Full_Iron_Armour", "Icewars", "BETA_Icewars", "Bedwars_solo", "Bedwars_duos", "Bedwars_quads");
 
     private int getGameMinPlayers(String gameName) {
         switch (gameName.toLowerCase()) {
             case "bedwars_duos":
             case "bedwars_quads":
+            case "fiend_fight_duo":
+            case "fiend_fight_quad":
                 return 4;
             case "assault_course":
             case "full_iron_armour":
+            case "fiend_fight_one_team":
                 return 1;
-            default:  // icewars, bedwars_solo
+            default:  // icewars, bedwars_solo, fiend_fight_one_team, fiend_fight_solo
                 return 2;
         }
     }

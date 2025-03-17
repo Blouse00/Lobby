@@ -9,8 +9,10 @@ import com.stewart.lobby.instances.GameServer;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCRegistry;
+import net.citizensnpcs.trait.SkinTrait;
 import org.bukkit.*;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -29,6 +31,9 @@ public class GameManager {
     private final HashMap<UUID, Integer> lstPlayersForAutoJoin = new HashMap<>();
     private final HashMap<String, Integer> mapGameNameSlot = new HashMap<>();
 
+    private final String[]  arrAllGameSubtypes = {"assault", "smp", "fia", "icewars"};
+    private final String[]  arrFFSubtypes = {"fiend_fight_solo",  "fiend_fight_duo",  "fiend_fight_quad", "fiend_fight_one_team"};
+
     public GameManager(Lobby lobby) {
         this.main = lobby;
         File file = new File(main.getDataFolder(), "games.yml");
@@ -42,6 +47,8 @@ public class GameManager {
                 deSpawnNPCS();
                 setUpBedwars();
                 setUpGames();
+                setUpFiendFight();
+                requestGameStatusForAllGames();
             }
         }, 60L);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(main, () -> CheckAutoJoinPlayers(), 60, 20);
@@ -106,6 +113,10 @@ public class GameManager {
             System.out.println("best game is: " + gameMostLikelyToStart);
             Player player = Bukkit.getPlayer(uuid);
 
+          /*  for (String string :mapGameNameSlot.keySet()) {
+                System.out.println("game name slot " + string + " " + mapGameNameSlot.get(string));
+            }*/
+
             // get the slot that applies to this game
             Integer slot = mapGameNameSlot.get(gameMostLikelyToStart);
             System.out.println("slot is " + slot);
@@ -140,9 +151,11 @@ public class GameManager {
     }
 
     public void setUpGames() {
-        String[]  arrSubtypes = {"assault", "smp", "fia", "icewars", "monster_solo",  "monster_duo",  "monster_quad", "monster_one_team"};
+       // String[]  arrSubtypes = {"assault", "smp", "fia", "icewars", "monster_solo",  "monster_duo",  "monster_quad", "monster_one_team"};
+      //  String[]  arrSubtypes = {"assault", "smp", "fia", "icewars"};
+
         // first loop through each game type
-        for (String s : arrSubtypes) {
+        for (String s : arrAllGameSubtypes) {
             System.out.println("game name " + s);
             // eg 'bedwars_solo'
             String gameName = gameConfig.getString( s + ".name");
@@ -160,31 +173,28 @@ public class GameManager {
 
             addGameToNameSlotMap(s, inventorySocket);
 
-            Location location = new Location(Bukkit.getWorld("world"),
-                    gameConfig.getDouble( s + ".npc-x"),
-                    gameConfig.getDouble( s + ".npc-y"),
-                    gameConfig.getDouble(s + ".npc-z"),
-                    (float) gameConfig.getDouble(s + ".npc-yaw"),
-                    (float) gameConfig.getDouble(s + ".npc-pitch"));
+            List<Location> lstLocation = new ArrayList<>();
+            for (String s1 : gameConfig.getConfigurationSection(s + ".npc-locations").getKeys(false)) {
+                Location location = new Location(Bukkit.getWorld("world"),
+                        gameConfig.getDouble(s + ".npc-locations." + s1 + ".npc-x"),
+                        gameConfig.getDouble(s + ".npc-locations." + s1 + ".npc-y"),
+                        gameConfig.getDouble(s + ".npc-locations." + s1 + ".npc-z"),
+                        (float) gameConfig.getDouble(s + ".npc-locations." + s1 + ".npc-yaw"),
+                        (float) gameConfig.getDouble(s + ".npc-locations." + s1 + ".npc-pitch"));
 
-            Game game   = new Game(main, gameName, location, texture, signature, nameColour, material, inventorySocket );
-
-            if (s.startsWith("monster") == false) {
-                game.spawnNPC();
+                lstLocation.add(location);
             }
+
+            Game game   = new Game(main, gameName, lstLocation, texture, signature, nameColour, material, inventorySocket );
+
+          //  if (s.startsWith("monster") == false) {
+                game.spawnNPC();
+           // }
 
             gameList.add(game);
 
-            /*if (s.equals("smp")) {
-                game.updateGameServer(gameConfig.getString(s + ".sockName"),
-                        "RECRUITING", 1, 10);
-            } else */
-           /* if (s.equals("creative")) {
-                game.updateGameServer(gameConfig.getString(s + ".sockName"),
-                        "RECRUITING", 1, 10);
-            } else {*/
 
-                for (String s1 : gameConfig.getConfigurationSection(s + ".servers").getKeys(false)) {
+               /* for (String s1 : gameConfig.getConfigurationSection(s + ".servers").getKeys(false)) {
                     SockExchangeApi sockExchangeApi = main.getSockExchangeApi();
                     String sockName = gameConfig.getString(s + ".servers." + s1 + ".sockName");
                     System.out.println("game server " + sockName);
@@ -208,11 +218,242 @@ public class GameManager {
                         }
                     }
               //  }
-            }
+            }*/
         }
     }
 
     public void setUpBedwars() {
+        // game name in config were Bedwars_solo Bedwars_duos Bedwars_quads
+        String[]  arrSubtypes = {"Bedwars_solo",  "Bedwars_duos",  "Bedwars_quads"};
+        String texture = gameConfig.getString("bedwars.npc-skin-texture");
+        String signature = gameConfig.getString("bedwars.npc-skin-signature");
+        String nameColour = gameConfig.getString("bedwars.npc-name-colour");
+        Material material = Material.getMaterial(gameConfig.getString("bedwars.material"));
+        /*int  inventorySocket = gameConfig.getInt("bedwars.inventory-slot");
+
+        addGameToNameSlotMap("Bedwars_solo", inventorySocket);
+        addGameToNameSlotMap("Bedwars_duos", inventorySocket);
+        addGameToNameSlotMap("Bedwars_quads", inventorySocket);*/
+
+        int inventorySocket = 0;
+        // first loop through each game type
+        for (String gameName : arrSubtypes) {
+            // eg 'bedwars_solo'
+            if (gameName.equals("Bedwars_solo")) {
+                inventorySocket = 25;
+                addGameToNameSlotMap("Bedwars_solo", inventorySocket);
+            }
+
+            if (gameName.equals("Bedwars_duos")) {
+                inventorySocket = 34;
+                addGameToNameSlotMap("Bedwars_duos", inventorySocket);
+            }
+
+            if (gameName.equals("Bedwars_quads")) {
+                inventorySocket = 43;
+                addGameToNameSlotMap("Bedwars_quads", inventorySocket);
+            }
+
+            // create the games but without any nps
+            List<Location> lstLocation = new ArrayList<>();
+
+            Game game = new Game(main, gameName, lstLocation, texture, signature, nameColour, material, inventorySocket);
+          //  game.spawnNPC();
+            gameList.add(game);
+        }
+
+        // get the locations and spawn the NPCs for bedwars
+        for (String s : gameConfig.getConfigurationSection("bedwars.npc-locations").getKeys(false)) {
+            Location location = new Location(Bukkit.getWorld("world"),
+                    gameConfig.getDouble("bedwars.npc-locations." + s + ".npc-x"),
+                    gameConfig.getDouble("bedwars.npc-locations." + s + ".npc-y"),
+                    gameConfig.getDouble("bedwars.npc-locations." + s + ".npc-z"),
+                    (float) gameConfig.getDouble("bedwars.npc-locations." + s + ".npc-yaw"),
+                    (float) gameConfig.getDouble("bedwars.npc-locations." + s + ".npc-pitch"));
+
+            spawnNPC(location, texture, signature, nameColour, "Bedwars");
+        }
+
+      /*  // the loop through the servers for that type
+        for (String s1 : gameConfig.getConfigurationSection("bedwars.servers").getKeys(false)) {
+            SockExchangeApi sockExchangeApi = main.getSockExchangeApi();
+            String sockName = gameConfig.getString("bedwars.servers." + s1 + ".sockName");
+            SpigotServerInfo spigotServerInfo = sockExchangeApi.getServerInfo(sockName);
+            if (spigotServerInfo == null) {
+                System.out.println("server not found " + sockName);
+            } else {
+                if (spigotServerInfo.isOnline()) {
+                    // server is online
+                    // send a message to the game server requesting it to return its status
+                    System.out.flush();
+                    // string should be split at .
+                    // lobby shows request originator
+                    // request-status to let it know what we want
+                    // the server sockName, to be returned with any reply so this class knows which server to update.
+
+                    String inputString = "Lobby.request-status." + sockName;
+                    System.out.println("Requesting game server status: " + sockName + ", msg:" + inputString);
+                    SockExchangeApi api = SockExchangeApi.instance();
+                    byte[] byteArray = inputString.getBytes();
+                    api.sendToServer("LobbyChannel", byteArray, sockName);
+                } else {
+                    // server is offline
+                    System.out.println("server is offline " + sockName);
+                }
+            }
+        }*/
+    }
+
+    public void setUpFiendFight() {
+        // game name in config were Bedwars_solo Bedwars_duos Bedwars_quads
+     //   String[]  arrSubtypes = {"fiend_fight_solo",  "fiend_fight_duo",  "fiend_fight_quad", "fiend_fight_one_team"};
+        String texture = gameConfig.getString("monster.npc-skin-texture");
+        String signature = gameConfig.getString("monster.npc-skin-signature");
+        String nameColour = gameConfig.getString("monster.npc-name-colour");
+        Material material = Material.getMaterial(gameConfig.getString("monster.material"));
+        int  inventorySocket = gameConfig.getInt("monster.inventory-slot");
+
+
+
+        // first loop through each game type
+        for (String gameName : arrFFSubtypes) {
+
+            if (gameName.equals("fiend_fight_one_team")) {
+                inventorySocket = 10;
+                material = Material.GOLD_HELMET;
+                addGameToNameSlotMap("fiend_fight_one_team", inventorySocket);
+            }
+            if (gameName.equals("fiend_fight_solo")) {
+                inventorySocket = 19;
+                material = Material.LEATHER_HELMET;
+                addGameToNameSlotMap("fiend_fight_solo", inventorySocket);
+            }
+            if (gameName.equals("fiend_fight_duo")) {
+                inventorySocket = 28;
+                material = Material.CHAINMAIL_HELMET;
+                addGameToNameSlotMap("fiend_fight_duo", inventorySocket);
+            }
+            if (gameName.equals("fiend_fight_quad")) {
+                inventorySocket = 37;
+                material = Material.IRON_HELMET;
+                addGameToNameSlotMap("fiend_fight_quad", inventorySocket);
+            }
+
+
+            // create the games but without any nps
+            List<Location> lstLocation = new ArrayList<>();
+
+            Game game = new Game(main, gameName, lstLocation, texture, signature, nameColour, material, inventorySocket);
+         //   game.spawnNPC();
+            gameList.add(game);
+
+         /*   // the loop through the servers for that type
+            for (String s1 : gameConfig.getConfigurationSection("monster.servers").getKeys(false)) {
+                SockExchangeApi sockExchangeApi = main.getSockExchangeApi();
+                String sockName = gameConfig.getString("monster.servers." + s1 + ".sockName");
+                SpigotServerInfo spigotServerInfo = sockExchangeApi.getServerInfo(sockName);
+                if (spigotServerInfo == null) {
+                    System.out.println("server not found " + sockName);
+                } else {
+                    if (spigotServerInfo.isOnline()) {
+                        // server is online
+                        // send a message to the game server requesting it to return its status
+                        System.out.flush();
+                        // string should be split at .
+                        // lobby shows request originator
+                        // request-status to let it know what we want
+                        // the server sockName, to be returned with any reply so this class knows which server to update.
+
+                        String inputString = "Lobby.request-status." + sockName + "." + gameName;
+                        System.out.println("Requesting game server status: " + sockName + ", msg:" + inputString);
+                        SockExchangeApi api = SockExchangeApi.instance();
+                        byte[] byteArray = inputString.getBytes();
+                        api.sendToServer("LobbyChannel", byteArray, sockName);
+                    } else {
+                        // server is offline
+                        System.out.println("server is offline " + sockName);
+                    }
+                }
+            }
+*/
+        }
+
+        // get the locations and spawn the NPCs for fiend fight
+        for (String s : gameConfig.getConfigurationSection( "monster.npc-locations").getKeys(false)) {
+            Location location = new Location(Bukkit.getWorld("world"),
+                    gameConfig.getDouble("monster.npc-locations." + s + ".npc-x"),
+                    gameConfig.getDouble("monster.npc-locations." + s + ".npc-y"),
+                    gameConfig.getDouble("monster.npc-locations." + s + ".npc-z"),
+                    (float) gameConfig.getDouble("monster.npc-locations." + s + ".npc-yaw"),
+                    (float) gameConfig.getDouble("monster.npc-locations." + s + ".npc-pitch"));
+
+            spawnNPC(location, texture, signature, nameColour, "FiendFight");
+        }
+
+
+    }
+
+    public void spawnNPC(Location location, String texture, String signature, String nameColour, String name) {
+        String npcName = nameColour + name;
+        net.citizensnpcs.api.npc.NPC npc =CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
+        SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
+        skin.setSkinPersistent("pjs", signature, texture);
+        npc.spawn(location);
+    }
+
+    private void requestGameStatusForAllGames() {
+        long i = 10;
+        SockExchangeApi sockExchangeApi = main.getSockExchangeApi();
+        for (String s : arrAllGameSubtypes) {
+            for (String s1 : gameConfig.getConfigurationSection(s + ".servers").getKeys(false)) {
+                String sockName = gameConfig.getString(s + ".servers." + s1 + ".sockName");
+                String inputString = "Lobby.request-status." + sockName + "." + s;
+                Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> requestGameStatus(sockExchangeApi, sockName, inputString), i);
+                i += 10;
+            }
+        }
+
+        for (String s1 : gameConfig.getConfigurationSection("bedwars.servers").getKeys(false)) {
+
+            String sockName = gameConfig.getString("bedwars.servers." + s1 + ".sockName");
+            String inputString = "Lobby.request-status." + sockName;
+            Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> requestGameStatus(sockExchangeApi, sockName, inputString), i);
+            i += 10;
+        }
+
+        for (String s : arrFFSubtypes) {
+            for (String s1 : gameConfig.getConfigurationSection("monster.servers").getKeys(false)) {
+                String sockName = gameConfig.getString("monster.servers." + s1 + ".sockName");
+                String inputString = "Lobby.request-status." + sockName + "." + s;
+                Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> requestGameStatus(sockExchangeApi, sockName, inputString), i);
+                i += 10;
+            }
+        }
+    }
+
+    private void requestGameStatus(SockExchangeApi sockExchangeApi, String sockName, String inputString) {
+        System.out.println("game server " + sockName);
+        SpigotServerInfo spigotServerInfo = sockExchangeApi.getServerInfo(sockName);
+        if (spigotServerInfo == null) {
+            System.out.println("server not found " + sockName);
+        } else {
+            if (spigotServerInfo.isOnline()) {
+                System.out.println("server is online requesting status");
+                // server is online
+                System.out.flush();
+                System.out.println("Requesting game server status: " + sockName + ", msg:" + inputString);
+                SockExchangeApi api = SockExchangeApi.instance();
+                byte[] byteArray = inputString.getBytes();
+                api.sendToServer("LobbyChannel", byteArray, sockName);
+            } else {
+                // server is offline
+                System.out.println("server is offline " + sockName);
+            }
+        }
+    }
+
+
+ /*   public void setUpBedwars() {
        String[]  arrSubtypes = {"solo", "duo", "quad"};
         // first loop through each game type
         for (String s : arrSubtypes) {
@@ -270,7 +511,7 @@ public class GameManager {
                 }
             }
         }
-    }
+    }*/
 
 
 
@@ -450,11 +691,7 @@ public class GameManager {
         }
         if (sockName.startsWith("monster")) {
             System.out.println("Updating fiend fight " + gameType + " server object");
-            if (gameType.equals("one_team")) {
-                game = getGameByName("fiend_fight_one_team");
-            } else {
-                game = getGameByName("fiend_fight_" + gameType + "s");
-            }
+            game = getGameByName("fiend_fight_" + gameType);
         }
         if (game != null) {
             System.out.println("game found sock name: " + sockName + ", status " + status);
@@ -485,11 +722,13 @@ public class GameManager {
     }
 
     public Game getGameByName(String name) {
+     //   System.out.println("getGameByName called with name: " + name);
         if (gameList == null) {
             return null;
         }
+
         for (Game game : gameList) {
-         //   System.out.println("------------ get game by name loop - " + game.getGameName());
+         //   System.out.println("------------ get game by name looping through existing games - " + game.getGameName());
             if (game.getGameName().equalsIgnoreCase(name)) {
                 return game;
             }
@@ -514,19 +753,36 @@ public class GameManager {
 
     public void gameChosenFromInventory(Player player, int slot) {
         for (Game game : gameList) {
+          //  System.out.println("game name is " + game.getGameName());
             if (game.getInventorySlot() == slot) {
-                if ((game.getGameName().toLowerCase().startsWith("fiend") && player.hasPermission("group.admin")) ||
-                        !game.getGameName().toLowerCase().startsWith("fiend")) {
-                    player.closeInventory();
-                    if (game.isPlayerInQueue(player.getUniqueId())) {
-                        player.sendMessage("You are already in the queue for this game!");
-                    } else {
-                        game.playerJoinRequest(player, false);
-                    }
+                player.closeInventory();
+              //  System.out.println("ame chosen is " + game.getGameName());
+                if (game.isPlayerInQueue(player.getUniqueId())) {
+                    player.sendMessage("You are already in the queue for this game!");
+                } else {
+                    game.playerJoinRequest(player, false);
                 }
                 return;
             }
         }
+        player.sendMessage("Game not found!");
+    }
+
+    public void gameChosenFromInventoryByName(Player player, String gameName) {
+        for (Game game : gameList) {
+           // System.out.println("game name is " + game.getGameName());
+            if (game.getGameName().equalsIgnoreCase(gameName)) {
+                player.closeInventory();
+             //   System.out.println("ame chosen is " + game.getGameName());
+                if (game.isPlayerInQueue(player.getUniqueId())) {
+                    player.sendMessage("You are already in the queue for this game!");
+                } else {
+                    game.playerJoinRequest(player, false);
+                }
+                return;
+            }
+        }
+        player.sendMessage("Game not found!");
     }
 
     public List<Game> getGameList() { return this.gameList;   }
@@ -580,14 +836,26 @@ public class GameManager {
                 mapGameNameSlot.put("Icewars", slot);
                 mapGameNameSlot.put("BETA_Icewars", slot);
                 break;
-            case("solo"):
+            case("Bedwars_solo"):
                 mapGameNameSlot.put("Bedwars_solo", slot);
                 break;
-            case("duo"):
+            case("Bedwars_duos"):
                 mapGameNameSlot.put("Bedwars_duos", slot);
                 break;
-            case("quad"):
+            case("Bedwars_quads"):
                 mapGameNameSlot.put("Bedwars_quads", slot);
+                break;
+            case("fiend_fight_solo"):
+                mapGameNameSlot.put("fiend_fight_solo", slot);
+                break;
+            case("fiend_fight_duo"):
+                mapGameNameSlot.put("fiend_fight_duo", slot);
+                break;
+            case("fiend_fight_quad"):
+                mapGameNameSlot.put("fiend_fight_quad", slot);
+                break;
+            case("fiend_fight_one_team"):
+                mapGameNameSlot.put("fiend_fight_one_team", slot);
                 break;
         }
     }

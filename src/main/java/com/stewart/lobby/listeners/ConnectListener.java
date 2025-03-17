@@ -59,9 +59,11 @@ public class ConnectListener implements Listener {
             } else {
                 versionMessage = "MC version " + strVersion + ", protocol number " + version + ", player name " + player.getName() + " joined Lobby";
             }
-            lobby.getJda().getGuildById(ConfigManager.getDiscordServer())
-                    .getTextChannelById(ConfigManager.getDiscordChannel())
-                    .sendMessage(versionMessage).queue();
+            if (lobby.getJda() != null) {
+                lobby.getJda().getGuildById(ConfigManager.getDiscordServer())
+                        .getTextChannelById(ConfigManager.getDiscordChannel())
+                        .sendMessage(versionMessage).queue();
+            }
         }
     }
 

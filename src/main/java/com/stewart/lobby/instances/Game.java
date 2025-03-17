@@ -35,7 +35,7 @@ public class Game {
 
     private final String name;
     private int maxPlayers;
-    private final Location npcSpawnLocation;
+    private final List<Location> npcSpawnLocation;
     private final List<GameServer> serverList = new ArrayList<>();
     private final HashMap<UUID, Timestamp> playersInQueue = new HashMap<>();
   //  private HashMap<UUID, String> partyPlayerQueue = new HashMap<>();
@@ -50,7 +50,7 @@ public class Game {
     private boolean isBlocked;
   //  private EntityPlayer npc;
 
-    public Game(Lobby lobby,  String name, Location npcSpawnLocation, String texture, String signature,
+    public Game(Lobby lobby,  String name, List<Location> npcSpawnLocation, String texture, String signature,
                 String nameColour, Material material, int inventorySlot) {
         this.isBlocked = false;
       //  this.gameItem = gameItem;
@@ -71,11 +71,14 @@ public class Game {
 
     public void spawnNPC() {
 
-       String npcName = this.nameColour + this.name;
-       net.citizensnpcs.api.npc.NPC npc =CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
-       SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
-       skin.setSkinPersistent("pjs", signature, texture);
-       npc.spawn(npcSpawnLocation);
+        for (Location location : npcSpawnLocation) {
+            String npcName = this.nameColour + this.name;
+            net.citizensnpcs.api.npc.NPC npc =CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
+            SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
+            skin.setSkinPersistent("pjs", signature, texture);
+            npc.spawn(location);
+        }
+
 
        System.out.println("spawning npc for " + name);
     }
@@ -256,9 +259,12 @@ public class Game {
             // get server name from the sign
             out.writeUTF(sockNameMostPlayers);
             // teleport the player to the game server, this is done via the bungeecord channel
-            main.getJda().getGuildById(ConfigManager.getDiscordServer())
-                    .getTextChannelById(ConfigManager.getDiscordChannel())
-                    .sendMessage("Sending " + player.getName() + " to " + sockNameMostPlayers).queue();
+            if (main.getJda() != null) {
+                main.getJda().getGuildById(ConfigManager.getDiscordServer())
+                        .getTextChannelById(ConfigManager.getDiscordChannel())
+                        .sendMessage("Sending " + player.getName() + " to " + sockNameMostPlayers).queue();
+            }
+
             player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
 
             if (ConfigManager.getAnnounceGameJoin()) {
@@ -296,9 +302,11 @@ public class Game {
                 player.sendMessage("Use the command " + ChatColor.YELLOW + "/karma help" + ChatColor.WHITE + " for more information.");
                 player.sendMessage(getDecorativeRow());
                 String versionMessage = "Player " + player.getName() + " tried to join SMP but only has " + playerKarma + " karma";
-                main.getJda().getGuildById(ConfigManager.getDiscordServer())
-                        .getTextChannelById(ConfigManager.getDiscordChannel())
-                        .sendMessage(versionMessage).queue();
+                if (main.getJda() != null) {
+                    main.getJda().getGuildById(ConfigManager.getDiscordServer())
+                            .getTextChannelById(ConfigManager.getDiscordChannel())
+                            .sendMessage(versionMessage).queue();
+                }
                 return false;
             }
         }
@@ -311,9 +319,11 @@ public class Game {
         player.sendMessage(getDecorativeRow());
         // alert discord
         String versionMessage = "Player " + player.getName() + " tried to join SMP but is BLOCKED";
+        if (main.getJda() != null) {
             main.getJda().getGuildById(ConfigManager.getDiscordServer())
-            .getTextChannelById(ConfigManager.getDiscordChannel())
-            .sendMessage(versionMessage).queue();
+                    .getTextChannelById(ConfigManager.getDiscordChannel())
+                    .sendMessage(versionMessage).queue();
+        }
         return false;
     }
 
@@ -393,9 +403,11 @@ public class Game {
             // get server name from the sign
             out.writeUTF(sockName);
             // teleport the player to the game server, this is done via the bungeecord channel
-            main.getJda().getGuildById(ConfigManager.getDiscordServer())
-                    .getTextChannelById(ConfigManager.getDiscordChannel())
-                    .sendMessage("Sending " + player.getName() + " to " + sockName).queue();
+            if (main.getJda() != null) {
+                main.getJda().getGuildById(ConfigManager.getDiscordServer())
+                        .getTextChannelById(ConfigManager.getDiscordChannel())
+                        .sendMessage("Sending " + player.getName() + " to " + sockName).queue();
+            }
             player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
      /*       if (party != null) {
                 AddPartyPlayersToPartyQueue(party, sockName);

@@ -1,6 +1,23 @@
 package com.stewart.lobby.utils;
 
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.Arrays;
+
 public class LobbyUtils {
+
+    public static ItemStack comsticsMenuItem() {
+        ItemStack is = new ItemStack(Material.FIREWORK, 1);
+        ItemMeta im = is.getItemMeta();
+        im.setDisplayName(ChatColor.GOLD + "Cosmetics");
+        im.setLore(Arrays.asList(
+                ChatColor.GRAY + "Click to open the cosmetics menu."
+        ));
+        return is;
+    }
 
     public static String getMinecraftVersionFromVIAProtocol(int protocolNumber) {
         switch (protocolNumber) {

@@ -1,6 +1,7 @@
 package com.stewart.lobby.manager;
 
 import com.stewart.lobby.Lobby;
+import com.stewart.lobby.utils.LobbyUtils;
 import com.stewart.lobby.utils.NewPlayerGameInventory;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.trait.SkinTrait;
@@ -38,6 +39,13 @@ public class LobbyManager {
     private final Location noPvpTopCorner;
     private final Location noPvpBottomCorner;
 
+    private final Location noPvpTopCorner2;
+    private final Location noPvpBottomCorner2;
+
+    //-55 40 -10
+
+    // -11 50 10
+
     public LobbyManager(Lobby lobby) {
         this.main = lobby;
         feetBlockY = main.getConfig().getInt("feet-block-y");
@@ -45,6 +53,9 @@ public class LobbyManager {
         lstNoPvp = new ArrayList<>();
         noPvpTopCorner = new Location(Bukkit.getWorld("world"), 24, 58, -10);
         noPvpBottomCorner = new Location(Bukkit.getWorld("world"), 1, 48, -33 );
+
+        noPvpTopCorner2 = new Location(Bukkit.getWorld("world"), -11, 50, 10);
+        noPvpBottomCorner2 = new Location(Bukkit.getWorld("world"), -55, 40, -10 );
         spawnVoteMaster();
         spawnDiscordNPC();
     }
@@ -77,6 +88,11 @@ public class LobbyManager {
                 skin.setSkinPersistent("discord", ConfigManager.getDiscordSkinSignature(), ConfigManager.getDiscordSkinTexture());
                 npc.spawn(new Location(Bukkit.getWorld("world"), 1.5, 51, -18.5, -90, -10));
 
+                net.citizensnpcs.api.npc.NPC npc2 = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
+                SkinTrait skin2 = npc2.getOrAddTrait(SkinTrait.class);
+                skin2.setSkinPersistent("discord", ConfigManager.getDiscordSkinSignature(), ConfigManager.getDiscordSkinTexture());
+                npc2.spawn(new Location(Bukkit.getWorld("world"), -13.5, 43, -5.5, 45, 22));
+
                 System.out.println("spawning npc for discord");
             }
         }, 200L);
@@ -99,6 +115,12 @@ public class LobbyManager {
             particleIterator = 19;
             particleTask = null;
             showPlayerParticles();
+        }
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player != null) {
+                player.getPlayer().setFoodLevel(20);
+            }
         }
 
         checkPlayerZone();
@@ -155,6 +177,9 @@ public class LobbyManager {
         player.getInventory().setChestplate(null);
         player.getInventory().setLeggings(null);
         player.getInventory().setBoots(null);
+        if (player.isOp() || player.getName().equalsIgnoreCase("monkey_bean") || player.getName().equalsIgnoreCase("blouse00")) {
+            player.getInventory().setItem(1, LobbyUtils.comsticsMenuItem());
+        }
         // give them compass for teleport to parkour
         ItemStack compass = new ItemStack(Material.NETHER_STAR);
         ItemMeta ism = compass.getItemMeta();
@@ -171,11 +196,11 @@ public class LobbyManager {
         player.getInventory().setHeldItemSlot(4);
         showJoinMessages(player);
 
-        // after 2 seconds check & adjust their y coordinate
+     /*   // after 2 seconds check & adjust their y coordinate
         Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> {
             checkPlayerFeetLevel(player);
         }, 40L);
-
+*/
        /* Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
             @Override
             public void run() {
@@ -279,15 +304,15 @@ public class LobbyManager {
             UUID uuid = player.getUniqueId();
           //  System.out.println("Checking " + player.getName() + " is in list = " + (lstNoPvp.contains(uuid) ? "true" : "false"));
 
-            if (isInRegion(player.getLocation(), noPvpBottomCorner, noPvpTopCorner)) {
+            if (isInRegion(player.getLocation(), noPvpBottomCorner, noPvpTopCorner) || isInRegion(player.getLocation(), noPvpBottomCorner2, noPvpTopCorner2)) {
                 if (!lstNoPvp.contains(uuid)){
                     lstNoPvp.add(uuid);
-                    player.sendMessage("Entering no PVP area");
+                    player.sendMessage( ChatColor.GREEN + "Leaving PVP area");
                 }
             } else {
                 if (lstNoPvp.contains(uuid)) {
                     lstNoPvp.remove(uuid);
-                    player.sendMessage("Leaving no PVP area");
+                    player.sendMessage(ChatColor.RED + "Entering PVP area");
                 }
             }
         }

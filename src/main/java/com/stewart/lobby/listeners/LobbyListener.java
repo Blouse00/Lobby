@@ -4,6 +4,7 @@ import com.stewart.lobby.Lobby;
 import com.stewart.lobby.instances.Game;
 import com.stewart.lobby.manager.ConfigManager;
 import com.stewart.lobby.utils.GameInventory;
+import com.stewart.lobby.utils.LobbyUtils;
 import com.stewart.lobby.utils.NewPlayerGameInventory;
 import com.stewart.lobby.utils.RulesInventory;
 import net.citizensnpcs.api.CitizensAPI;
@@ -14,6 +15,7 @@ import net.citizensnpcs.trait.SkinTrait;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
 import net.minecraft.server.v1_8_R3.PacketPlayOutTitle;
 import org.bukkit.*;
+import org.bukkit.block.Block;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -25,6 +27,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.*;
@@ -48,8 +51,8 @@ public class LobbyListener implements Listener {
 
     @EventHandler
     public void onClick (InventoryClickEvent e) {
-
         // allow players who are op & in creative mode to change stuff
+        e.setCancelled(true);
         if (!e.getWhoClicked().isOp() && !e.getWhoClicked().getGameMode().equals(GameMode.CREATIVE)) {
             e.setCancelled(true);
         }
@@ -67,6 +70,46 @@ public class LobbyListener implements Listener {
                 Player player = (Player) e.getWhoClicked();
                 // the shop click function handles what to do depending on the slot that was clicked
                 lobby.getGameManager().gameChosenFromInventory(player, e.getRawSlot());
+                e.setCancelled(true);
+            } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
+                    .equals("" + ChatColor.DARK_GRAY + ChatColor.BOLD + "FIEND FIGHT GAME TYPE.") &&
+                    e.getCurrentItem() != null) {
+                // PICKED FROM FIEND FIGHT GAME TYPE INVENTORY
+                // 20 SOLO 21 DUO 22 QUAD 23 ONE TEAM#
+                switch (e.getRawSlot()) {
+                    case 20:
+                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "fiend_fight_one_team");
+                        break;
+                    case 22:
+                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "fiend_fight_solo");
+                        break;
+                    case 23:
+                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "fiend_fight_duo");
+                        break;
+                    case 24:
+                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "fiend_fight_quad");
+                        break;
+
+                }
+                e.setCancelled(true);
+            } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
+                    .equals("" + ChatColor.DARK_GRAY + ChatColor.BOLD + "BEDWARS GAME TYPE.") &&
+                    e.getCurrentItem() != null) {
+
+                // PICKED FROM BEDWARS GAME TYPE INVENTORY
+                // 21 SOLO 22 DUO 23 QUAD
+                switch (e.getRawSlot()) {
+                    case 21:
+                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "bedwars_solo");
+                        break;
+                    case 22:
+                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "bedwars_duos");
+                        break;
+                    case 23:
+                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "bedwars_quads");
+                        break;
+                }
+                e.setCancelled(true);
             } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
                         .equals("" + ChatColor.GOLD + ChatColor.BOLD + "JUMP INTO A GAME.") &&
                         e.getCurrentItem() != null) {
@@ -185,6 +228,19 @@ public class LobbyListener implements Listener {
 
         if (action == Action.RIGHT_CLICK_BLOCK || action == Action.RIGHT_CLICK_AIR) {
 
+            if (e.getAction() == Action.RIGHT_CLICK_BLOCK) {
+                Block clicked = e.getClickedBlock();
+                System.out.println("block type = " + clicked.getType().toString());
+                if (lobby.getRuleLobbyManager().containsPlayer(player.getUniqueId()) && clicked.getType() == Material.STONE_BUTTON) {
+                    // player has clicked the rules button
+                    System.out.println("button clicked");
+                    RulesInventory rulesInventory = new RulesInventory(lobby);
+                    player.openInventory(rulesInventory.getRulesInventory(player));
+                    return;
+                }
+            }
+
+
             int slot = player.getInventory().getHeldItemSlot();
             System.out.println("Slot " + slot + " clicked");
             if (slot == 0) {
@@ -192,11 +248,18 @@ public class LobbyListener implements Listener {
                 GameInventory gameInventory = new GameInventory(lobby);
                 player.openInventory(gameInventory.getGameInventory(player));
             }
+            if (slot == 1) {
+                // open game type inventory
+                if (player.isOp() || player.getName().equalsIgnoreCase("monkey_bean") || player.getName().equalsIgnoreCase("blouse00")) {
+                    player.chat("/uc menu");;
+                }
+            }
             if (slot == 8) {
                 // teleport player to parkour
                 lobby.getLobbyManager().teleportToParkour(player);
                 e.setCancelled(true);
             }
+            e.setCancelled(true);
         }
     }
 
@@ -204,7 +267,12 @@ public class LobbyListener implements Listener {
     public void damage(EntityDamageEvent event) //Listens to EntityDamageEvent
     {
 
-     //   System.out.println("Damage type = " + event.getCause().toString());
+       // System.out.println("Damage type = " + event.getEntity().getType().toString());
+        if (event.getEntity().getType() == EntityType.ITEM_FRAME) {
+            event.setCancelled(true);
+            return;
+        }
+
 
             // each time a player damages a player I need to log who damaged who in a hashmap in the arena
             // this allows me to determine who killed a player in the EntityDamageEntity event above.
@@ -223,9 +291,9 @@ public class LobbyListener implements Listener {
 
                 if (event instanceof EntityDamageByEntityEvent) {
 
-                    System.out.println("Entity damage entity event");
+                   // System.out.println("Entity damage entity event");
                     EntityDamageByEntityEvent ev = (EntityDamageByEntityEvent) event;
-                    System.out.println("Damager = " + ev.getDamager().toString());
+                 //   System.out.println("Damager = " + ev.getDamager().toString());
                     // damaged by an entity
                     // each time a player damages a player I need to log who damaged who in a hashmap in the arena
                     // this allows me to determine who killed a player in the EntityDamageEntity event above.
@@ -241,8 +309,8 @@ public class LobbyListener implements Listener {
     }
 
     private void CheckPlayerDies(Player player, EntityDamageEvent ev) {
-        System.out.println("Check player dies fired damage = " + ev.getFinalDamage());
-        System.out.println("player health = " + player.getHealth());
+     //   System.out.println("Check player dies fired damage = " + ev.getFinalDamage());
+     //   System.out.println("player health = " + player.getHealth());
         if (player.getHealth() - ev.getFinalDamage() <= 0) {
             System.out.println("Player would have died");
             // cancel death
@@ -263,12 +331,16 @@ public class LobbyListener implements Listener {
 
 
     // prevent any blocks being placed
-    @EventHandler
+   /* @EventHandler
     public void onSpawn(CreatureSpawnEvent e) throws IOException {
         // no block break
+        System.out.println("creature spawn event entity type = " + e.getEntity().getType());
+        if (e.getEntity().getType().equals(EntityType.ARMOR_STAND)) {
+            return;
+        }
         e.setCancelled(true);
         System.out.println("Creature spawn cancelled");
-    }
+    }*/
 
     // prevent player dropping things with q button
     @EventHandler
@@ -314,6 +386,14 @@ public class LobbyListener implements Listener {
         } else  if (npcName.toLowerCase().contains("votemaster")) {
             player.performCommand("vote");
         } else {
+            if (npcName.toLowerCase().contains("fiendfight")) {
+                GameInventory gameInventory = new GameInventory(lobby);
+                player.openInventory(gameInventory.getFiendFightInventory(player));
+            }
+            if (npcName.toLowerCase().contains("bedwars")) {
+                GameInventory gameInventory = new GameInventory(lobby);
+                player.openInventory(gameInventory.getBedwarsInventory(player));
+            }
             Game game = lobby.getGameManager().getGameByNpcName(npcName);
             if (game == null) {
                 player.sendMessage("Game server not found, please try again later.");
@@ -388,6 +468,12 @@ public class LobbyListener implements Listener {
 
 
         }
+    }
+
+    @EventHandler
+    public void hangingEntityBreak(HangingBreakEvent event) {
+      //  System.out.println("hanging break event fired");
+        event.setCancelled(true);
     }
 
 }

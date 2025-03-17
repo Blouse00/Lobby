@@ -35,8 +35,8 @@ public class GameInventory {
 
         for (Game game : gameList) {
           //  System.out.println("--------------------game name " + game.getGameName());
-            if ((game.getGameName().toLowerCase().startsWith("fiend") && player.hasPermission("group.admin")) ||
-                    !game.getGameName().toLowerCase().startsWith("fiend")) {
+       //     if ((game.getGameName().toLowerCase().startsWith("fiend") && player.hasPermission("group.admin")) ||
+         //           !game.getGameName().toLowerCase().startsWith("fiend")) {
                 //  if (game.getGameColourInt() > -1) {
                 ItemStack wool = new ItemStack(new ItemStack(game.getMaterial()));
                 ItemMeta woolMeta = wool.getItemMeta();
@@ -46,7 +46,7 @@ public class GameInventory {
                 wool.setItemMeta(woolMeta);
                 inv.setItem(game.getInventorySlot(), wool);
                 //  }
-            }
+         //   }
         }
 
         //FRAME
@@ -59,7 +59,95 @@ public class GameInventory {
         return inv;
     }
 
-    private void setGameLore(ItemMeta itemMeta, String gameName) {
+    public Inventory getBedwarsInventory(Player player) {
+
+
+        Inventory inv = Bukkit.createInventory(player, 54, "" + ChatColor.DARK_GRAY + ChatColor.BOLD + "BEDWARS GAME TYPE.");
+
+        ItemStack wool = new ItemStack(new ItemStack(Material.BED));
+        ItemMeta woolMeta = wool.getItemMeta();
+        woolMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        GameInventory.setGameLore(woolMeta, "Bedwars_solo");
+        woolMeta.setDisplayName(ChatColor.GOLD + "Join bedwars solo");
+        wool.setItemMeta(woolMeta);
+        inv.setItem(21, wool);
+
+        ItemStack wool2 = new ItemStack(new ItemStack(Material.BED));
+        ItemMeta woolMeta2 = wool2.getItemMeta();
+        woolMeta2.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        GameInventory.setGameLore(woolMeta2, "Bedwars_duos");
+        woolMeta2.setDisplayName(ChatColor.GOLD + "Join bedwars duos");
+        wool2.setItemMeta(woolMeta2);
+        inv.setItem(22, wool2);
+
+        ItemStack wool3 = new ItemStack(new ItemStack(Material.BED));
+        ItemMeta woolMeta3 = wool3.getItemMeta();
+        woolMeta3.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        GameInventory.setGameLore(woolMeta3, "Bedwars_quads");
+        woolMeta3.setDisplayName(ChatColor.GOLD + "Join bedwars quads");
+        wool3.setItemMeta(woolMeta3);
+        inv.setItem(23, wool3);
+
+        //FRAME
+        ItemStack frame = new ItemStack(Material.STAINED_GLASS_PANE, 1, DyeColor.BLACK.getData());
+        ItemMeta frameMeta = frame.getItemMeta();
+        frameMeta.setDisplayName("");
+        for (int i : new int[]{0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,45,46,47,48,49,50,51,52,53})
+            inv.setItem(i, frame);
+
+        return inv;
+    }
+
+    public Inventory getFiendFightInventory(Player player) {
+
+
+        Inventory inv = Bukkit.createInventory(player, 54, "" + ChatColor.DARK_GRAY + ChatColor.BOLD + "FIEND FIGHT GAME TYPE.");
+
+        ItemStack wool4 = new ItemStack(new ItemStack(Material.GOLD_HELMET));
+        ItemMeta woolMeta4 = wool4.getItemMeta();
+        woolMeta4.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        GameInventory.setGameLore(woolMeta4, "Fiend_fight_one_team");
+        woolMeta4.setDisplayName(ChatColor.GOLD + "Join fiend fight one team");
+        wool4.setItemMeta(woolMeta4);
+        inv.setItem(20, wool4);
+
+        ItemStack wool = new ItemStack(new ItemStack(Material.LEATHER_HELMET));
+        ItemMeta woolMeta = wool.getItemMeta();
+        woolMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        GameInventory.setGameLore(woolMeta, "Fiend_fight_solo");
+        woolMeta.setDisplayName(ChatColor.GOLD + "Join fiend fight solo");
+        wool.setItemMeta(woolMeta);
+        inv.setItem(22, wool);
+
+        ItemStack wool2 = new ItemStack(new ItemStack(Material.CHAINMAIL_HELMET));
+        ItemMeta woolMeta2 = wool2.getItemMeta();
+        woolMeta2.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        GameInventory.setGameLore(woolMeta2, "Fiend_fight_duo");
+        woolMeta2.setDisplayName(ChatColor.GOLD + "Join fiend fight duos");
+        wool2.setItemMeta(woolMeta2);
+        inv.setItem(23, wool2);
+
+        ItemStack wool3 = new ItemStack(new ItemStack(Material.IRON_HELMET));
+        ItemMeta woolMeta3 = wool3.getItemMeta();
+        woolMeta3.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        GameInventory.setGameLore(woolMeta3, "Fiend_fight_quad");
+        woolMeta3.setDisplayName(ChatColor.GOLD + "Join fiend fight quads");
+        wool3.setItemMeta(woolMeta3);
+        inv.setItem(24, wool3);
+
+
+
+        //FRAME
+        ItemStack frame = new ItemStack(Material.STAINED_GLASS_PANE, 1, DyeColor.BLACK.getData());
+        ItemMeta frameMeta = frame.getItemMeta();
+        frameMeta.setDisplayName("");
+        for (int i : new int[]{0,1,2,3,4,5,6,7,8,9,17,18,26,27,35,36,44,45,46,47,48,49,50,51,52,53})
+            inv.setItem(i, frame);
+
+        return inv;
+    }
+
+    public static void setGameLore(ItemMeta itemMeta, String gameName) {
         List<String> lst = new ArrayList<>();
         switch (gameName.toLowerCase()) {
             case ("bedwars_solo"): {
@@ -76,6 +164,24 @@ public class GameInventory {
                 lst.add(ChatColor.GRAY + "Buy items and upgrades to get an advantage.");
                 lst.add(ChatColor.GRAY + "Bridge to other islands and attack other teams.");
                 lst.add(ChatColor.GRAY + "Shops at mid offer special enchants & items!");
+                itemMeta.setLore(lst);
+                break;
+            }
+            case ("fiend_fight_solo"):
+            case ("fiend_fight_quad"):
+            case ("fiend_fight_duo"): {
+                lst.add(ChatColor.GRAY + "Fight through arenas of mobs!");
+                lst.add(ChatColor.GRAY + "By yourself or with a team.");
+                lst.add(ChatColor.GRAY + "Try to get the best score!");
+                lst.add(ChatColor.GRAY + "Buy items and upgrades to get an advantage.");
+                itemMeta.setLore(lst);
+                break;
+            }
+            case ("fiend_fight_one_team"): {
+                lst.add(ChatColor.GRAY + "Fight through arenas of mobs!");
+                lst.add(ChatColor.GRAY + "By yourself or with " + ChatColor.BOLD + ChatColor.RED + "YOUR PARTY.");
+                lst.add(ChatColor.GRAY + "Try to get the best score!");
+                lst.add(ChatColor.GRAY + "Buy items and upgrades to get an advantage.");
                 itemMeta.setLore(lst);
                 break;
             }

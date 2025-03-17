@@ -71,7 +71,7 @@ public final class Lobby extends JavaPlugin {
 
      //   tempPromos = bb_api.startTempPromos(new Location(Bukkit.getWorld("world"), 22.5, 57.5, -22.5));
 
-        Bukkit.getWorld("world").setDifficulty(Difficulty.PEACEFUL);
+        Bukkit.getWorld("world").setDifficulty(Difficulty.NORMAL);
 
         Bukkit.getWorld("world").setStorm(false);
         // Need this to be able to move players to another server
