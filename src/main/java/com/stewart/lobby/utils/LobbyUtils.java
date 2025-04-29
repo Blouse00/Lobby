@@ -10,13 +10,14 @@ import java.util.Arrays;
 public class LobbyUtils {
 
     public static ItemStack comsticsMenuItem() {
-        ItemStack is = new ItemStack(Material.FIREWORK, 1);
+        ItemStack is = new ItemStack(Material.GOLD_INGOT);
         ItemMeta im = is.getItemMeta();
         im.setDisplayName(ChatColor.GOLD + "Cosmetics");
         im.setLore(Arrays.asList(
                 ChatColor.GRAY + "Click to open the cosmetics menu."
         ));
         return is;
+
     }
 
     public static String getMinecraftVersionFromVIAProtocol(int protocolNumber) {
@@ -101,6 +102,12 @@ public class LobbyUtils {
                 return "1.20.5 - 1.20.6";
             case 767:
                 return "1.21";
+            case 768:
+                return "1.22 - 1.22.3";
+            case 769:
+                return "1.21.4";
+            case 770:
+                return "1.21.5";
             default:
                 return "";
         }

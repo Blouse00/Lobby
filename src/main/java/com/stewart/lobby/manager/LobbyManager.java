@@ -1,6 +1,11 @@
 package com.stewart.lobby.manager;
 
+import com.gmail.tracebachi.SockExchange.Spigot.SockExchangeApi;
+import com.gmail.tracebachi.SockExchange.SpigotServerInfo;
+import com.google.common.io.ByteArrayDataOutput;
+import com.google.common.io.ByteStreams;
 import com.stewart.lobby.Lobby;
+import com.stewart.lobby.instances.PlayerServerInfo;
 import com.stewart.lobby.utils.LobbyUtils;
 import com.stewart.lobby.utils.NewPlayerGameInventory;
 import net.citizensnpcs.api.CitizensAPI;
@@ -71,10 +76,14 @@ public class LobbyManager {
                 skin.setSkinPersistent("vote", ConfigManager.getVotesSkinSignature(), ConfigManager.getVotesSkinTexture());
                 npc.spawn(new Location(Bukkit.getWorld("world"), 9.5, 51, -10.5, 180, -17));
 
+                net.citizensnpcs.api.npc.NPC npc2 = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
+                SkinTrait skin2 = npc2.getOrAddTrait(SkinTrait.class);
+                skin2.setSkinPersistent("vote", ConfigManager.getVotesSkinSignature(), ConfigManager.getVotesSkinTexture());
+                npc2.spawn(new Location(Bukkit.getWorld("world"), -35.5, 43, 6.5, 180, -10));
+
                 System.out.println("spawning npc for votes");
             }
         }, 200L);
-
     }
 
     private void spawnDiscordNPC() {
@@ -91,7 +100,7 @@ public class LobbyManager {
                 net.citizensnpcs.api.npc.NPC npc2 = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
                 SkinTrait skin2 = npc2.getOrAddTrait(SkinTrait.class);
                 skin2.setSkinPersistent("discord", ConfigManager.getDiscordSkinSignature(), ConfigManager.getDiscordSkinTexture());
-                npc2.spawn(new Location(Bukkit.getWorld("world"), -13.5, 43, -5.5, 45, 22));
+                npc2.spawn(new Location(Bukkit.getWorld("world"), -35.5, 43, -5.5, 0, 10));
 
                 System.out.println("spawning npc for discord");
             }
@@ -124,13 +133,15 @@ public class LobbyManager {
         }
 
         checkPlayerZone();
-
         // removes players from the spawn protect list who has been there 5 seconds or more
         playerSpawnProtect.entrySet().removeIf(e -> e.getValue() + 4 < gameSeconds );
         // removes players from the portallingt list who has been there 4 seconds or more
         playerPortalling.entrySet().removeIf(e -> e.getValue() + 3 < gameSeconds );
-
         gameSeconds += 1;
+        // every minute remove players from the sent to server list who have been there 60 minutes or more
+        if (gameSeconds%60 == 0) {
+            main.getGameManager().removePlayerServerInfoOverMinutes(2);
+        }
     }
 
     // returns if the passed player is currently spawn protected or not, used in the game listener when a player takes
@@ -167,6 +178,8 @@ public class LobbyManager {
 
     public void playerJoined(Player player) {
 
+        // check if this player is in the list of players who have been sent to a minigame server
+        checkIfServerToRejoin(player.getUniqueId());
 
         player.getInventory().clear();
         player.setGameMode(GameMode.SURVIVAL);
@@ -177,15 +190,21 @@ public class LobbyManager {
         player.getInventory().setChestplate(null);
         player.getInventory().setLeggings(null);
         player.getInventory().setBoots(null);
-        if (player.isOp() || player.getName().equalsIgnoreCase("monkey_bean") || player.getName().equalsIgnoreCase("blouse00")) {
-            player.getInventory().setItem(1, LobbyUtils.comsticsMenuItem());
-        }
-        // give them compass for teleport to parkour
+
         ItemStack compass = new ItemStack(Material.NETHER_STAR);
         ItemMeta ism = compass.getItemMeta();
         ism.setDisplayName(ChatColor.BLUE+ "Go to lobby parkour");
         compass.setItemMeta(ism);
         player.getInventory().setItem(8,compass);
+      //  if (player.isOp() || player.getName().equalsIgnoreCase("monkey_bean") || player.getName().equalsIgnoreCase("blouse00")) {
+         //   player.getInventory().setItem(1, LobbyUtils.comsticsMenuItem());
+     //   }
+        // give them compass for teleport to parkour
+        ItemStack shopItem = new ItemStack(Material.BEACON);
+        ItemMeta shopMeta = shopItem.getItemMeta();
+        shopMeta.setDisplayName(ChatColor.GOLD + "Cosmetics");
+        shopItem.setItemMeta(shopMeta);
+        player.getInventory().setItem(1,shopItem);
         // give them netherStar to open game join inventory
         ItemStack netherStar = new ItemStack(Material.COMPASS);
         ItemMeta netherStarMeta = netherStar.getItemMeta();
@@ -195,20 +214,55 @@ public class LobbyManager {
         // set active hotbar slot to middle
         player.getInventory().setHeldItemSlot(4);
         showJoinMessages(player);
+    }
 
-     /*   // after 2 seconds check & adjust their y coordinate
-        Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> {
-            checkPlayerFeetLevel(player);
-        }, 40L);
-*/
-       /* Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
-            @Override
-            public void run() {
-                NewPlayerGameInventory newPlayerGameInventory = new NewPlayerGameInventory(main);
-                player.openInventory(newPlayerGameInventory.getGameInventory(player));
-                main.getGameManager().AddPlayerToAutoJoin(player.getUniqueId());
+    private void checkIfServerToRejoin(UUID uuid) {
+        System.out.println("LobbyManager checking if joining player needs to rejoin a server");
+        // if they are check with that server to see if they were partway though a game and if so return them to that game
+        PlayerServerInfo playerServerInfo = main.getGameManager().getPlayerServerInfo(uuid);
+        if (playerServerInfo != null) {
+            System.out.println("- player found in game list");
+            // check with the server if the player was there
+            if (isServerOnline(playerServerInfo.getSockName())) {
+                System.out.println("server is online " + playerServerInfo.getSockName());
+                System.out.flush();
+                String inputString = "Lobby.player-rejoining." + playerServerInfo.getUuid();
+                System.out.println("LobbyManager sending message to game server for rejoining player: " + inputString);
+                SockExchangeApi api = SockExchangeApi.instance();
+                byte[] byteArray = inputString.getBytes();
+                api.sendToServer("LobbyChannel", byteArray, playerServerInfo.getSockName());
+            } else {
+                // server is offline
+                System.out.println("server is offline " + playerServerInfo.getSockName());
             }
-        }, 80L);*/
+        }
+    }
+
+    private boolean isServerOnline(String serverName) {
+        SockExchangeApi sockExchangeApi = main.getSockExchangeApi();
+        SpigotServerInfo spigotServerInfo = sockExchangeApi.getServerInfo(serverName);
+        return spigotServerInfo != null && spigotServerInfo.isOnline();
+    }
+
+    public void PlayerReJoinGameServer(String strUuid) {
+
+        UUID uuid = UUID.fromString(strUuid);
+        Player player = Bukkit.getPlayer(uuid);
+
+        if (player != null) {
+            System.out.println("Lobby PlayerReJoinGameServer server wanted player back " + player.getName());
+            PlayerServerInfo playerServerInfo = main.getGameManager().getPlayerServerInfo(uuid);
+            String sockName = playerServerInfo.getSockName();
+            if (playerServerInfo != null) {
+                if (isServerOnline(playerServerInfo.getSockName())) {
+                    ByteArrayDataOutput out = ByteStreams.newDataOutput();
+                    out.writeUTF("Connect");
+                    out.writeUTF(sockName);
+                    getScheduler().scheduleSyncDelayedTask(main, () -> player.sendPluginMessage(main, "BungeeCord", out.toByteArray()), 10);
+                    System.out.println("Lobby PlayerReJoinGameServer server wanted player back " + player.getName() + " sent to " + sockName);
+                }
+            }
+        }
     }
 
     private void showJoinMessages(Player player) {

@@ -35,13 +35,13 @@ public class Game {
 
     private final String name;
     private int maxPlayers;
-    private final List<Location> npcSpawnLocation;
+  //  private final List<Location> npcSpawnLocation;
     private final List<GameServer> serverList = new ArrayList<>();
     private final HashMap<UUID, Timestamp> playersInQueue = new HashMap<>();
   //  private HashMap<UUID, String> partyPlayerQueue = new HashMap<>();
-    private final String texture;
+   /* private final String texture;
     private final String signature;
-    private final String nameColour;
+    private final String nameColour;*/
     private final Material material;
     private final int inventorySlot;
 
@@ -50,16 +50,17 @@ public class Game {
     private boolean isBlocked;
   //  private EntityPlayer npc;
 
-    public Game(Lobby lobby,  String name, List<Location> npcSpawnLocation, String texture, String signature,
-                String nameColour, Material material, int inventorySlot) {
+    public Game(Lobby lobby,  String name,  Material material, int inventorySlot) {
+/*    public Game(Lobby lobby,  String name, List<Location> npcSpawnLocation, String texture, String signature,
+                String nameColour, Material material, int inventorySlot) {*/
         this.isBlocked = false;
       //  this.gameItem = gameItem;
         this.name = name;
-        this.npcSpawnLocation = npcSpawnLocation;
+        //this.npcSpawnLocation = npcSpawnLocation;
         this.main = lobby;
-        this.texture = texture;
+       /* this.texture = texture;
         this.signature = signature;
-        this.nameColour = nameColour;
+        this.nameColour = nameColour;*/
         this.material = material;
         this.inventorySlot = inventorySlot;
 
@@ -69,7 +70,7 @@ public class Game {
         Bukkit.getScheduler().scheduleSyncRepeatingTask(main, () -> checkGameServersOnline(), 600, 600);
     }
 
-    public void spawnNPC() {
+/*    public void spawnNPC() {
 
         for (Location location : npcSpawnLocation) {
             String npcName = this.nameColour + this.name;
@@ -81,7 +82,7 @@ public class Game {
 
 
        System.out.println("spawning npc for " + name);
-    }
+    }*/
 
     private void checkGameServersOnline() {
       //  System.out.println("checkGameServersOnline servers = " +serverList.size());
@@ -150,12 +151,12 @@ public class Game {
         } else {
             // player requested to join game
 
-            if (this.name.contains("Bedwars_")) {
+            /*if (this.name.contains("Bedwars_")) {
                 System.out.println("BedWars server join detected");
                 JoinBedwarsServer(player);
                 return;
             }
-
+*/
             if (this.name.contains("SMP") && !getCanAccessSMP(player)) {
                 System.out.println("Player not eligible for smp");
                 return;
@@ -194,7 +195,7 @@ public class Game {
                 // send the player there
                 main.getGameManager().removePlayerFromQueues(player.getUniqueId(), null);
                 if (player != null) {
-                    if (this.name.toLowerCase().contains("fiend")) {
+                    if (this.name.toLowerCase().contains("fiend") || this.name.toLowerCase().contains("bedwars")) {
                         System.out.println("Checking if player is in a party");
                         PAFPlayer pafPlayer = PAFPlayerManager.getInstance().getPlayer(player.getUniqueId());
                         PlayerParty party = PartyManager.getInstance().getParty(pafPlayer);
@@ -214,11 +215,11 @@ public class Game {
                         if (warnServerApproachingPlayers(commaSeparatedPlayerNames, sockNameMostPlayers)) {
                             // after a second send the player to the server
                             String finalSockNameMostPlayers = sockNameMostPlayers;
-                            Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> sendPlayerToServer(player, finalSockNameMostPlayers), 20L);
+                            Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> SendPlayerToServer(player, finalSockNameMostPlayers), 20L);
                         }
                     } else {
                         // not monster game - just send them to the server
-                        sendPlayerToServer(player, sockNameMostPlayers);
+                        SendPlayerToServer(player, sockNameMostPlayers);
                     }
 
                 }
@@ -250,32 +251,6 @@ public class Game {
             }
         }
     }
-
-    private void sendPlayerToServer(Player player, String sockNameMostPlayers) {
-        try {
-            System.out.println("Sending player to server");
-            ByteArrayDataOutput out = ByteStreams.newDataOutput();
-            out.writeUTF("Connect");
-            // get server name from the sign
-            out.writeUTF(sockNameMostPlayers);
-            // teleport the player to the game server, this is done via the bungeecord channel
-            if (main.getJda() != null) {
-                main.getJda().getGuildById(ConfigManager.getDiscordServer())
-                        .getTextChannelById(ConfigManager.getDiscordChannel())
-                        .sendMessage("Sending " + player.getName() + " to " + sockNameMostPlayers).queue();
-            }
-
-            player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
-
-            if (ConfigManager.getAnnounceGameJoin()) {
-                Bukkit.broadcastMessage(ChatColor.BLUE + player.getName() + ChatColor.WHITE + " has joined " + ChatColor.BLUE + getGameName());
-            }
-
-        } catch (Exception ex) {
-            player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
-        }
-    }
-
     private boolean getCanAccessSMP(Player player) {
         int smpAccess = main.getBb_api().getGenericQueries().getIntValue("bb_players", "player_uuid",
                 player.getUniqueId().toString(), "smp_access");
@@ -337,7 +312,7 @@ public class Game {
         return sb.toString();
     }
 
-    private void JoinBedwarsServer(Player player) {
+   /* private void JoinBedwarsServer(Player player) {
         PAFPlayer pafPlayer = PAFPlayerManager.getInstance().getPlayer(player.getUniqueId());
         PlayerParty party = PartyManager.getInstance().getParty(pafPlayer);
         // if its a party I need to know how many players there are, default this to 1 for non-party player
@@ -391,13 +366,13 @@ public class Game {
 
         } else {
             // send the player to the server
-            SendPlayerToServer(player, serverSockName, party);
+            SendPlayerToServer(player, serverSockName);
         }
-    }
+    }*/
 
-    private void SendPlayerToServer(Player player, String sockName, PlayerParty party) {
+    private void SendPlayerToServer(Player player, String sockName) {
         try {
-            System.out.println("Sending player to server 2");
+            System.out.println("Sending player to server " + sockName);
             ByteArrayDataOutput out = ByteStreams.newDataOutput();
             out.writeUTF("Connect");
             // get server name from the sign
@@ -409,12 +384,15 @@ public class Game {
                         .sendMessage("Sending " + player.getName() + " to " + sockName).queue();
             }
             player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
-     /*       if (party != null) {
-                AddPartyPlayersToPartyQueue(party, sockName);
-            }  */
+            if (sockName.toLowerCase().contains("monster") ||sockName.toLowerCase().contains("assault")
+                    || sockName.toLowerCase().contains("bedwars")) {
+                main.getGameManager().addPlayerServerInfo(player.getUniqueId(), sockName);
+            }
         } catch (Exception ex) {
             player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
         }
+
+
     }
 
     public void addPlayerToQueue(Player player, boolean sendMessage) {

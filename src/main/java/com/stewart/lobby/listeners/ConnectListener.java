@@ -53,6 +53,9 @@ public class ConnectListener implements Listener {
             ViaAPI api = Via.getAPI(); // Get the API
             int version = api.getPlayerVersion(player); // Get the protocol version
             String strVersion = LobbyUtils.getMinecraftVersionFromVIAProtocol(version);
+            Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, () -> addAnticheatBypassPermission(version == 770, player), 20L);
+
+
             String versionMessage = "";
             if (strVersion.equals("")) {
                 versionMessage = "Protocol number " + version + " MC version not found - player name " + player.getName() + " joined Lobby";
@@ -64,6 +67,25 @@ public class ConnectListener implements Listener {
                         .getTextChannelById(ConfigManager.getDiscordChannel())
                         .sendMessage(versionMessage).queue();
             }
+        }
+    }
+
+    private void addAnticheatBypassPermission(boolean add, Player player) {
+        if (player != null && player.hasPermission("grim.exempt")) {
+            System.out.printf("Player " + player.getName() + " already has bypass permission");
+        }
+        if (add && player!= null && !player.hasPermission("grim.exempt")) {
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission set grim.exempt true");
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission set vulcan.bypass true");
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission unset vulkan.bypass");
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp sync");
+            System.out.printf("add bypass permission to player " + player.getName());
+        }
+        if (!add && player!= null && player.hasPermission("grim.exempt")) {
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission unset grim.exempt");
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission unset vulcan.bypass");
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission unset vulkan.bypass");
+            System.out.printf("remove bypass permission from player " + player.getName());
         }
     }
 

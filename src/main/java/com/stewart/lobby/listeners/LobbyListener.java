@@ -7,6 +7,10 @@ import com.stewart.lobby.utils.GameInventory;
 import com.stewart.lobby.utils.LobbyUtils;
 import com.stewart.lobby.utils.NewPlayerGameInventory;
 import com.stewart.lobby.utils.RulesInventory;
+import de.simonsator.partyandfriends.spigot.api.pafplayers.PAFPlayer;
+import de.simonsator.partyandfriends.spigot.api.pafplayers.PAFPlayerManager;
+import de.simonsator.partyandfriends.spigot.api.party.PartyManager;
+import de.simonsator.partyandfriends.spigot.api.party.PlayerParty;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.event.NPCLeftClickEvent;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
@@ -27,6 +31,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
@@ -103,10 +108,10 @@ public class LobbyListener implements Listener {
                         lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "bedwars_solo");
                         break;
                     case 22:
-                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "bedwars_duos");
+                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "bedwars_duo");
                         break;
                     case 23:
-                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "bedwars_quads");
+                        lobby.getGameManager().gameChosenFromInventoryByName((Player) e.getWhoClicked(), "bedwars_quad");
                         break;
                 }
                 e.setCancelled(true);
@@ -250,9 +255,9 @@ public class LobbyListener implements Listener {
             }
             if (slot == 1) {
                 // open game type inventory
-                if (player.isOp() || player.getName().equalsIgnoreCase("monkey_bean") || player.getName().equalsIgnoreCase("blouse00")) {
+              //  if (player.isOp() || player.getName().equalsIgnoreCase("monkey_bean") || player.getName().equalsIgnoreCase("blouse00")) {
                     player.chat("/uc menu");;
-                }
+              //  }
             }
             if (slot == 8) {
                 // teleport player to parkour
@@ -384,7 +389,7 @@ public class LobbyListener implements Listener {
 
 
         } else  if (npcName.toLowerCase().contains("votemaster")) {
-            player.performCommand("vote");
+            player.performCommand("vote URL");
         } else {
             if (npcName.toLowerCase().contains("fiendfight")) {
                 GameInventory gameInventory = new GameInventory(lobby);
@@ -436,6 +441,13 @@ public class LobbyListener implements Listener {
     }*/
 
     @EventHandler
+    public void onEntityPortal(EntityPortalEvent event) {
+        System.out.println("preventing entity portal event");
+        event.getEntity().teleport(ConfigManager.getLobbySpawn());
+        event.setCancelled(true);
+    }
+
+    @EventHandler
     public void onPortal(PlayerPortalEvent event) {
 
       //  System.out.println("------------------------------------------portal event fired");
@@ -444,10 +456,24 @@ public class LobbyListener implements Listener {
 
             Player player = event.getPlayer();
 
+
+
             // this event fires multiple times. only do the check if they are not already portalling
             if (!lobby.getLobbyManager().isPlayerPortalling(player)) {
 
+
                 lobby.getLobbyManager().addPlayerPortalling(player);
+                PAFPlayer pafPlayer = PAFPlayerManager.getInstance().getPlayer(player.getUniqueId());
+                PlayerParty party = PartyManager.getInstance().getParty(pafPlayer);
+
+                if (party != null) {
+                    if (!party.isLeader(pafPlayer)) {
+                        player.teleport(ConfigManager.getLobbyReSpawn());
+                        player.sendMessage( ChatColor.GREEN + "SORRY - Only the party leader can join games for you!");
+                        event.setCancelled(true);
+                        return;
+                    }
+                }
 
                 // Delay by a couple of seconds, so they get the portal effect.
              //   Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, () -> {

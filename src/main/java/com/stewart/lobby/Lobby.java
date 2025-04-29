@@ -55,8 +55,6 @@ public final class Lobby extends JavaPlugin {
             e.printStackTrace();
         }
 
-
-
         if (bb_api == null) {
             System.out.println("---------------------------------------------API IS NULL------------------------");
         } else {
@@ -108,11 +106,11 @@ public final class Lobby extends JavaPlugin {
                 // sock name . report-status . state (all caps) . current players .  max players . team size.
                 if (arrReceived[1].equals("report-status") ) {
                     // sock name for bedwars will be eg bedwars_0, bedwars_1
-                    if (arrReceived[0].toLowerCase().contains("bedwars")) {
+                   /* if (arrReceived[0].toLowerCase().contains("bedwars")) {
                         // sock status currentPlayers teamSize
                         gameManager.updateBedwarsGameServer(arrReceived[0], arrReceived[2],
                                 Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), Integer.parseInt(arrReceived[5]));
-                    } else if (arrReceived[0].toLowerCase().contains("monster")) {
+                    } else*/ if (arrReceived[0].toLowerCase().contains("monster") ||arrReceived[0].toLowerCase().contains("bedwars")) {
                         // for monster the same sockname could have multiple game types (quad solo duo)
                         // will pass sockname status currnetPlayers maxPlayers, gameType
 
@@ -125,6 +123,9 @@ public final class Lobby extends JavaPlugin {
                         gameManager.updateGameServer(arrReceived[0],  arrReceived[2],
                                 Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), "");
                     }
+
+                } else if (arrReceived[1].equals("player-rejoining")) {
+                    lobbyManager.PlayerReJoinGameServer(arrReceived[2]);
 
                 }
             }catch(Exception ex){

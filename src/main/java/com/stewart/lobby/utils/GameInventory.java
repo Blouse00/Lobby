@@ -75,7 +75,7 @@ public class GameInventory {
         ItemStack wool2 = new ItemStack(new ItemStack(Material.BED));
         ItemMeta woolMeta2 = wool2.getItemMeta();
         woolMeta2.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        GameInventory.setGameLore(woolMeta2, "Bedwars_duos");
+        GameInventory.setGameLore(woolMeta2, "Bedwars_duo");
         woolMeta2.setDisplayName(ChatColor.GOLD + "Join bedwars duos");
         wool2.setItemMeta(woolMeta2);
         inv.setItem(22, wool2);
@@ -83,7 +83,7 @@ public class GameInventory {
         ItemStack wool3 = new ItemStack(new ItemStack(Material.BED));
         ItemMeta woolMeta3 = wool3.getItemMeta();
         woolMeta3.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        GameInventory.setGameLore(woolMeta3, "Bedwars_quads");
+        GameInventory.setGameLore(woolMeta3, "Bedwars_quad");
         woolMeta3.setDisplayName(ChatColor.GOLD + "Join bedwars quads");
         wool3.setItemMeta(woolMeta3);
         inv.setItem(23, wool3);
@@ -167,7 +167,14 @@ public class GameInventory {
                 itemMeta.setLore(lst);
                 break;
             }
-            case ("fiend_fight_solo"):
+            case ("fiend_fight_solo"): {
+                lst.add(ChatColor.GRAY + "Fight through arenas of mobs!");
+                lst.add(ChatColor.GRAY + "Compete against other players.");
+                lst.add(ChatColor.GRAY + "Try to get the best score!");
+                lst.add(ChatColor.GRAY + "Buy items and upgrades to get an advantage.");
+                itemMeta.setLore(lst);
+                break;
+            }
             case ("fiend_fight_quad"):
             case ("fiend_fight_duo"): {
                 lst.add(ChatColor.GRAY + "Fight through arenas of mobs!");
