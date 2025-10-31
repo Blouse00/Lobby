@@ -79,13 +79,11 @@ public class ConfigManager {
     }
 
     public static List<String> getRules() {
-        List<String> test1 = config.getStringList("rules");
-        return test1;
+        return config.getStringList("rules");
     }
 
     public static List<String> getPreRules() {
-        List<String> test1 = config.getStringList("rules-pre");
-        return test1;
+        return config.getStringList("rules-pre");
     }
 
     public  static String getRulesSkinTexture() {
@@ -113,8 +111,7 @@ public class ConfigManager {
     }
 
     public static List<String> getPostRules() {
-        List<String> test1 = config.getStringList("rules-post");
-        return test1;
+        return config.getStringList("rules-post");
     }
 
 

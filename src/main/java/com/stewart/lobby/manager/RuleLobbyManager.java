@@ -78,7 +78,7 @@ public class RuleLobbyManager {
     }
 
     public void removePlayer(UUID uuid) {
-        System.out.println("removing player from rules list length = " + lstPlayerRules.size());
+      //  System.out.println("removing player from rules list length = " + lstPlayerRules.size());
         // first cancel the runnable
         for (PlayerRules pr : lstPlayerRules) {
             if (pr.getUuid().equals(uuid)) {
@@ -88,7 +88,7 @@ public class RuleLobbyManager {
         }
         // then remove them from the list
         lstPlayerRules.removeIf(obj -> obj.getUuid().equals(uuid));
-        System.out.println("removed player from rules list length = " + lstPlayerRules.size());
+       // System.out.println("removed player from rules list length = " + lstPlayerRules.size());
     }
 
     public List<String> getLstRules() { return lstRules;}

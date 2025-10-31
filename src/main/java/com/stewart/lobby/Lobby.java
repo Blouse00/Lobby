@@ -3,15 +3,15 @@ package com.stewart.lobby;
 import com.gmail.tracebachi.SockExchange.Messages.ReceivedMessage;
 import com.gmail.tracebachi.SockExchange.Messages.ReceivedMessageNotifier;
 import com.gmail.tracebachi.SockExchange.Spigot.SockExchangeApi;
+import com.gmail.tracebachi.SockExchange.SpigotServerInfo;
 import com.google.common.io.ByteArrayDataInput;
 import com.stewart.lobby.commands.FlyCommand;
 import com.stewart.lobby.commands.LobbyCommand;
 import com.stewart.lobby.listeners.ConnectListener;
 import com.stewart.lobby.listeners.LobbyListener;
-import com.stewart.lobby.manager.ConfigManager;
-import com.stewart.lobby.manager.GameManager;
-import com.stewart.lobby.manager.LobbyManager;
-import com.stewart.lobby.manager.RuleLobbyManager;
+import com.stewart.lobby.manager.*;
+import com.stewart.lobby.minigames.SumoMiniGame;
+import com.stewart.lobby.utils.LobbyUtils;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
@@ -19,11 +19,15 @@ import net.dv8tion.jda.internal.utils.JDALogger;
 import org.bukkit.Bukkit;
 import org.bukkit.Difficulty;
 import org.bukkit.Location;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.stewart.bb_api.Bb_api;
+import com.planetgallium.kitpvp.Game;
 import org.stewart.bb_api.utils.TempPromos;
 
 import javax.security.auth.login.LoginException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 public final class Lobby extends JavaPlugin {
@@ -32,16 +36,20 @@ public final class Lobby extends JavaPlugin {
     private SockExchangeApi sockExchangeApi;
     private LobbyManager lobbyManager;
     private RuleLobbyManager ruleLobbyManager;
+    private BoostPadManager boostPadManager;
     private final Bb_api bb_api = (Bb_api) Bukkit.getServer().getPluginManager().getPlugin("bb_api");
+    private final Game kitPvP = (Game) Bukkit.getServer().getPluginManager().getPlugin("KitPvP");
     private ReceivedMessageNotifier messageNotifier;
     private JDA jda;
+    private static Lobby instance;
 
-  //  private TempPromos tempPromos;
+    //  private TempPromos tempPromos;
 
     @Override
-    public void onEnable()  {
+    public void onEnable() {
         // load the config file
         ConfigManager.setupConfig(this);
+        instance = this;
 
         JDALogger.setFallbackLoggerEnabled(false);
         JDABuilder builder = JDABuilder.createDefault(ConfigManager.getDiscordToken());
@@ -66,8 +74,9 @@ public final class Lobby extends JavaPlugin {
         gameManager = new GameManager(this);
         lobbyManager = new LobbyManager(this);
         ruleLobbyManager = new RuleLobbyManager(this);
+        boostPadManager = new BoostPadManager(this);
 
-     //   tempPromos = bb_api.startTempPromos(new Location(Bukkit.getWorld("world"), 22.5, 57.5, -22.5));
+        //   tempPromos = bb_api.startTempPromos(new Location(Bukkit.getWorld("world"), 22.5, 57.5, -22.5));
 
         Bukkit.getWorld("world").setDifficulty(Difficulty.NORMAL);
 
@@ -81,6 +90,7 @@ public final class Lobby extends JavaPlugin {
         // the listener for players clicking on a sign
         Bukkit.getPluginManager().registerEvents(new LobbyListener(this), this);
 
+
         // register the pw command class
         getCommand("pw").setExecutor(new LobbyCommand(this));
         getCommand("fly").setExecutor(new FlyCommand(this));
@@ -92,35 +102,36 @@ public final class Lobby extends JavaPlugin {
         // there is a new message on a specific channel
         messageNotifier = sockExchangeApi.getMessageNotifier();
 
-         //  this is fired when this server receives a 'Sockexchange' message from another server.
+        //  this is fired when this server receives a 'Sockexchange' message from another server.
         // the message is in the format 0-0-0-0
         // bedwars sends a message when the server starts, each time a new player joins/leaves and when the game
         // starts (no longer recruiting)
         Consumer<ReceivedMessage> requestConsumer = rm -> {
-            try{
+            try {
                 ByteArrayDataInput in = rm.getDataInput();
                 String s = in.readLine();
                 System.out.println("SockExchange message received " + s);
                 // s will be the message
                 String[] arrReceived = s.split("\\.");
                 // sock name . report-status . state (all caps) . current players .  max players . team size.
-                if (arrReceived[1].equals("report-status") ) {
+                if (arrReceived[1].equals("report-status")) {
                     // sock name for bedwars will be eg bedwars_0, bedwars_1
                    /* if (arrReceived[0].toLowerCase().contains("bedwars")) {
                         // sock status currentPlayers teamSize
                         gameManager.updateBedwarsGameServer(arrReceived[0], arrReceived[2],
                                 Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), Integer.parseInt(arrReceived[5]));
-                    } else*/ if (arrReceived[0].toLowerCase().contains("monster") ||arrReceived[0].toLowerCase().contains("bedwars")) {
+                    } else*/
+                    if (arrReceived[0].toLowerCase().contains("monster") || arrReceived[0].toLowerCase().contains("bedwars")) {
                         // for monster the same sockname could have multiple game types (quad solo duo)
                         // will pass sockname status currnetPlayers maxPlayers, gameType
 
-                        System.out.println("/****************** " + arrReceived[0] + " " +  arrReceived[2] + " " +
-                                Integer.parseInt(arrReceived[3]) + " " + Integer.parseInt(arrReceived[4]) + " " + arrReceived[5]);
-                        gameManager.updateGameServer(arrReceived[0],  arrReceived[2],
-                                 Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), arrReceived[5]);
+                        //     System.out.println("/****************** " + arrReceived[0] + " " +  arrReceived[2] + " " +
+                        //             Integer.parseInt(arrReceived[3]) + " " + Integer.parseInt(arrReceived[4]) + " " + arrReceived[5]);
+                        gameManager.updateGameServer(arrReceived[0], arrReceived[2],
+                                Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), arrReceived[5]);
                     } else {
                         // sockname status currentPlayers maxPlayers
-                        gameManager.updateGameServer(arrReceived[0],  arrReceived[2],
+                        gameManager.updateGameServer(arrReceived[0], arrReceived[2],
                                 Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), "");
                     }
 
@@ -128,7 +139,7 @@ public final class Lobby extends JavaPlugin {
                     lobbyManager.PlayerReJoinGameServer(arrReceived[2]);
 
                 }
-            }catch(Exception ex){
+            } catch (Exception ex) {
                 System.out.println("Sock exchange received message error");
                 ex.printStackTrace();
             }
@@ -140,23 +151,91 @@ public final class Lobby extends JavaPlugin {
 
     }
 
+    public void sendMessageToSMPPlayers(String playerName, String gameName) {
+        List<String> lstSockNames = new ArrayList<>();
+        lstSockNames.add("smp_0");
+        lstSockNames.add("man_trap");
+        for (String sockName : lstSockNames) {
+            SpigotServerInfo spigotServerInfo = sockExchangeApi.getServerInfo(sockName);
+            if (spigotServerInfo == null) {
+                System.out.println("server not found " + sockName);
+            } else {
+                if (spigotServerInfo.isOnline()) {
+                    System.out.flush();
+                    String inputString = "Lobby.play-message." + playerName + "." + gameName;
+                    SockExchangeApi api = SockExchangeApi.instance();
+                    byte[] byteArray = inputString.getBytes();
+                    api.sendToServer("LobbyChannel", byteArray, sockName);
+                } else {
+                    System.out.println("server is offline " + sockName);
+                }
+            }
+        }
+    }
+
     // returns the game manager instance
-    public  GameManager getGameManager() {return gameManager;}
+    public GameManager getGameManager() {
+        return gameManager;
+    }
 
-    public  LobbyManager getLobbyManager() {return lobbyManager;}
-    public RuleLobbyManager getRuleLobbyManager() { return ruleLobbyManager;}
+    public LobbyManager getLobbyManager() {
+        return lobbyManager;
+    }
 
-    public SockExchangeApi getSockExchangeApi () {return sockExchangeApi;}
+    public RuleLobbyManager getRuleLobbyManager() {
+        return ruleLobbyManager;
+    }
+
+    public BoostPadManager getBoostPadManager() {
+        return boostPadManager;
+    }
+
+    public SockExchangeApi getSockExchangeApi() {
+        return sockExchangeApi;
+    }
 
     @Override
     public void onDisable() {
         // Plugin shutdown logic
         bb_api.getMessageManager().toggleMessageSending(false);
-       // messageNotifier.unregister("LobbyChannel", requestConsumer);
+        // messageNotifier.unregister("LobbyChannel", requestConsumer);
     }
 
-    public Bb_api getBb_api() {return bb_api;}
+    public Bb_api getBb_api() {
+        return bb_api;
+    }
 
-    public JDA getJda() { return jda;}
+    public JDA getJda() {
+        return jda;
+    }
 
+    public static Lobby getInstance() {
+        return instance;
+    }
+
+    public Game getKitPvP() {
+        return kitPvP;
+    }
+
+    public void sendPlayerToKitPvP(Player player) {
+        if (kitPvP != null) {
+            kitPvP.getArena().addPlayerToKitPvP(player);
+            LobbyUtils.sendGameJoinMessage(player.getName(), "KitPvP");
+            if (jda != null) {
+                jda.getGuildById(ConfigManager.getDiscordServer())
+                        .getTextChannelById(ConfigManager.getDiscordChannel())
+                        .sendMessage("Sending " + player.getName() + " to KitPVP").queue();
+            }
+        } else {
+            player.sendMessage("KitPvP plugin not found on server");
+        }
+    }
+
+    public boolean isPlayerInKitPvP(Player player) {
+        if (kitPvP != null) {
+            return kitPvP.getArena().isPlayerInArena(player);
+        } else {
+            return false;
+        }
+    }
 }

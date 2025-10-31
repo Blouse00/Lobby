@@ -38,48 +38,48 @@ public class AutoGameSelector {
                     if (gameServer.getGameStatus().equals("RECRUITING") || gameServer.getGameStatus().equals("COUNTDOWN")) {
                         // cant be at max players
                         if (gameServer.getCurrentPlayers() < gameServer.getMaxPlayers()) {
-                            System.out.println("Adding server to the list for single game. Min players = " + minPlayers + ", current players = " + gameServer.getCurrentPlayers());
+                         //   System.out.println("Adding server to the list for single game. Min players = " + minPlayers + ", current players = " + gameServer.getCurrentPlayers());
                             lstAllGameServers.add(new GameForAutoJoin(game.getGameName(), minPlayers, gameServer.getCurrentPlayers()));
                         }else{
-                            System.out.println("NOT INCLUDING - game recruiting or countdown at max players");
+                         //   System.out.println("NOT INCLUDING - game recruiting or countdown at max players");
                         }
                     } else{
-                        System.out.println("NOT INCLUDING - game not recruiting or countdown");
+                     //  System.out.println("NOT INCLUDING - game not recruiting or countdown");
                     }
                 }
                 if (game.getServerList().isEmpty()) {
-                    System.out.println("NOT INCLUDING - game had no servers");
+                   // System.out.println("NOT INCLUDING - game had no servers");
                 }
             } else {
-                System.out.println("NOT INCLUDING - game was SMP or creative");
+              //  System.out.println("NOT INCLUDING - game was SMP or creative");
             }
         }
     }
 
     private void CheckBedwarsGames() {
-        System.out.println("Checking bedwars server list size = " + main.getGameManager().getBedwarsGameList().size());
+     //   System.out.println("Checking bedwars server list size = " + main.getGameManager().getBedwarsGameList().size());
         for (GameServer gameServer : main.getGameManager().getBedwarsGameList()) {
 
             // only include recruiting games
             if (gameServer.getGameStatus().equals("RECRUITING")) {
                 // cant be at max players
                 if (gameServer.getTeamSize() == 0) {
-                    System.out.println("Bedwars server is in standby, adding bedwars solo to the list");
+                   // System.out.println("Bedwars server is in standby, adding bedwars solo to the list");
                     // this server is in standby, add it to the list as solo (fastest to start at only 2 players)
                     lstAllGameServers.add(new GameForAutoJoin("Bedwars_solo", 2, 0));
                 } else {
                     // this server has players on it waiting
                     switch (gameServer.getTeamSize()) {
                         case (1):
-                            System.out.println("Bedwars solo server recruiting with players");
+                         //   System.out.println("Bedwars solo server recruiting with players");
                             lstAllGameServers.add(new GameForAutoJoin("Bedwars_solo", 2, gameServer.getCurrentPlayers()));
                             break;
                         case (2):
-                            System.out.println("Bedwars duo server recruiting with players");
+                          //  System.out.println("Bedwars duo server recruiting with players");
                             lstAllGameServers.add(new GameForAutoJoin("Bedwars_duos", 4, gameServer.getCurrentPlayers()));
                             break;
                         default:
-                            System.out.println("Bedwars quad server recruiting with players");
+                          //  System.out.println("Bedwars quad server recruiting with players");
                             lstAllGameServers.add(new GameForAutoJoin("Bedwars_quads", 4, gameServer.getCurrentPlayers()));
                             break;
                     }

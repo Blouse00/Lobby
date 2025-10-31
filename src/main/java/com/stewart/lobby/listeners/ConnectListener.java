@@ -28,7 +28,7 @@ public class ConnectListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         Player player = e.getPlayer();
-
+        player.setWalkSpeed(0.2f);
         lobby.getLobbyManager().addToNoPvpList(player.getUniqueId());
         e.setJoinMessage("");
 

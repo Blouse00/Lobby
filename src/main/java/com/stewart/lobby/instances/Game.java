@@ -7,16 +7,14 @@ import com.google.common.io.ByteStreams;
 import com.stewart.lobby.Lobby;
 import com.stewart.lobby.manager.ConfigManager;
 import com.stewart.lobby.manager.GameManager;
+import com.stewart.lobby.utils.LobbyUtils;
 import de.simonsator.partyandfriends.spigot.api.pafplayers.PAFPlayer;
 import de.simonsator.partyandfriends.spigot.api.pafplayers.PAFPlayerManager;
 import de.simonsator.partyandfriends.spigot.api.party.PartyManager;
 import de.simonsator.partyandfriends.spigot.api.party.PlayerParty;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.trait.SkinTrait;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.stewart.bb_api.instance.CustomPlayer;
@@ -117,7 +115,8 @@ public class Game {
     // also form checking queue
     public void playerJoinRequest(Player player, Boolean fromQueue) {
 
-        System.out.println("player join request " + this.getGameName());
+        System.out.println("player join request " + this.getGameName() + " player " + player.getName() +
+                " fromQueue " + fromQueue);
 
         boolean allowJoin = true;
 
@@ -146,7 +145,7 @@ public class Game {
         if (allowJoin) {
         if (this.isBlocked) {
             // in the process of sending a player, wait till that's complete
-            System.out.println("game is blocked, adding player to queue");
+          //  System.out.println("game is blocked, adding player to queue");
             addPlayerToQueue(player, false);
         } else {
             // player requested to join game
@@ -166,20 +165,20 @@ public class Game {
             // make a list of possible server sockNames
             HashMap<String, Integer> lstAvailable = new HashMap<>();
             for (GameServer gameServer : serverList) {
-                System.out.println("status: " + gameServer.getGameStatus() + " . p: " + gameServer.getCurrentPlayers() +
-                        " max " + maxPlayers);
+              //  System.out.println("status: " + gameServer.getGameStatus() + " . p: " + gameServer.getCurrentPlayers() +
+              //          " max " + maxPlayers);
                 if ((gameServer.getGameStatus().equals("RECRUITING") || gameServer.getGameStatus().equals("COUNTDOWN"))
                         && gameServer.getCurrentPlayers() < maxPlayers) {
-                    System.out.println("adding eligible server to list of possibles");
+               //     System.out.println("adding eligible server to list of possibles");
                     // Add this server to the list of possible player targets
                     lstAvailable.put(gameServer.getSockName(), gameServer.getCurrentPlayers());
                 }
             }
-            System.out.println(lstAvailable.size() + " possible server(s) found");
+         //   System.out.println(lstAvailable.size() + " possible server(s) found");
             if (lstAvailable.isEmpty()) {
                 // no servers are recruiting, put the player in the queue.
                 addPlayerToQueue(player, true);
-                System.out.println("Servers all busy, adding player to queue");
+             //   System.out.println("Servers all busy, adding player to queue");
             } else {
                 // loop through possible servers & send player to the fullest
                 Integer p = -1;
@@ -196,12 +195,12 @@ public class Game {
                 main.getGameManager().removePlayerFromQueues(player.getUniqueId(), null);
                 if (player != null) {
                     if (this.name.toLowerCase().contains("fiend") || this.name.toLowerCase().contains("bedwars")) {
-                        System.out.println("Checking if player is in a party");
+                     //   System.out.println("Checking if player is in a party");
                         PAFPlayer pafPlayer = PAFPlayerManager.getInstance().getPlayer(player.getUniqueId());
                         PlayerParty party = PartyManager.getInstance().getParty(pafPlayer);
                         String commaSeparatedPlayerNames = player.getName();
                         if (party != null) {
-                            System.out.println("Player is in a party");
+                         //   System.out.println("Player is in a party");
                             // let the monster server know what game type all the party players will be joining
                             StringBuilder str = new StringBuilder();
                             for (PAFPlayer partyPlayer : party.getAllPlayers()) {
@@ -239,14 +238,14 @@ public class Game {
             if (spigotServerInfo.isOnline()) {
                 System.out.flush();
                 String inputString = "Lobby.players-joining." + name + "." + commaSeparatedPlayerNames;
-                System.out.println("Game.warnServerApproachingPlayers: " + inputString);
+            //    System.out.println("Game.warnServerApproachingPlayers: " + inputString);
                 SockExchangeApi api = SockExchangeApi.instance();
                 byte[] byteArray = inputString.getBytes();
                 api.sendToServer("LobbyChannel", byteArray, sockName);
                 return true;
             } else {
                 // server is offline
-                System.out.println("server is offline " + sockName);
+            //    System.out.println("server is offline " + sockName);
                 return false;
             }
         }
@@ -372,7 +371,7 @@ public class Game {
 
     private void SendPlayerToServer(Player player, String sockName) {
         try {
-            System.out.println("Sending player to server " + sockName);
+            System.out.println("Sending player to server " + sockName + " player " + player.getName());
             ByteArrayDataOutput out = ByteStreams.newDataOutput();
             out.writeUTF("Connect");
             // get server name from the sign
@@ -388,9 +387,14 @@ public class Game {
                     || sockName.toLowerCase().contains("bedwars")) {
                 main.getGameManager().addPlayerServerInfo(player.getUniqueId(), sockName);
             }
+            LobbyUtils.sendGameJoinMessage(player.getName(), this.name);
+
+            main.sendMessageToSMPPlayers(player.getName(), this.name);
         } catch (Exception ex) {
             player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
         }
+
+
 
 
     }

@@ -1,7 +1,10 @@
 package com.stewart.lobby.utils;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -18,6 +21,16 @@ public class LobbyUtils {
         ));
         return is;
 
+    }
+
+    public static void sendGameJoinMessage(String playerName, String gameName) {
+        String broadCastMessage = ChatColor.DARK_BLUE + "■" + ChatColor.GOLD + "BashyBashy" + ChatColor.DARK_BLUE + "■ " +
+                ChatColor.GREEN + playerName + ChatColor.DARK_BLUE + " ▶▶▶ " + ChatColor.GREEN + "Joined " +
+                ChatColor.DARK_BLUE + "▶▶▶ " + ChatColor.LIGHT_PURPLE + gameName;
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(broadCastMessage);
+            p.playSound(p.getLocation(), Sound.CHICKEN_EGG_POP, 1.0f, 1.0f);
+        }
     }
 
     public static String getMinecraftVersionFromVIAProtocol(int protocolNumber) {

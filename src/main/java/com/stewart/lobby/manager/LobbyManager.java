@@ -46,7 +46,7 @@ public class LobbyManager {
 
     private final Location noPvpTopCorner2;
     private final Location noPvpBottomCorner2;
-
+    private int[][] pvpCoords;
     //-55 40 -10
 
     // -11 50 10
@@ -61,12 +61,55 @@ public class LobbyManager {
 
         noPvpTopCorner2 = new Location(Bukkit.getWorld("world"), -11, 50, 10);
         noPvpBottomCorner2 = new Location(Bukkit.getWorld("world"), -55, 40, -10 );
+        Bukkit.getScheduler().scheduleSyncDelayedTask(main, this::spawnNonGameNPCS, 200L);
+        getPVPCoords();
+    }
+
+    private void getPVPCoords() {
+        int count = 0;
+        for (String s : main.getConfig().getConfigurationSection("pvp-areas.").getKeys(false)) {
+            count ++;
+            System.out.println("found pvp area " + s);
+        }
+        pvpCoords = new int[count][6];
+        for (String s : main.getConfig().getConfigurationSection("pvp-areas.").getKeys(false)) {
+            int i = Integer.parseInt(s);
+            pvpCoords[i][0] = main.getConfig().getInt("pvp-areas." + s + ".xMin");
+
+            pvpCoords[i][1] = main.getConfig().getInt("pvp-areas." + s + ".xMax");
+            pvpCoords[i][2] = main.getConfig().getInt("pvp-areas." + s + ".yMin");
+            pvpCoords[i][3] = main.getConfig().getInt("pvp-areas." + s + ".yMax");
+            pvpCoords[i][4] = main.getConfig().getInt("pvp-areas." + s + ".zMin");
+            pvpCoords[i][5] = main.getConfig().getInt("pvp-areas." + s + ".zMax");
+
+            System.out.println(pvpCoords[i][0] + " " + pvpCoords[i][1] + " " + pvpCoords[i][2] + " " + pvpCoords[i][3] + " " + pvpCoords[i][4] + " " + pvpCoords[i][5]);
+            System.out.println("found pvp area sssssssssssssssssssssssssssssssssssssssssssss" );
+        }
+    }
+
+    private void spawnNonGameNPCS() {
         spawnVoteMaster();
         spawnDiscordNPC();
     }
 
     private void spawnVoteMaster() {
-        Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
+        String texture = ConfigManager.getVotesSkinTexture();
+        String signature = ConfigManager.getVotesSkinSignature();
+        String nameColour = ChatColor.GOLD + "";
+        // get the locations and spawn the NPCs for fiend fight
+        for (String s : main.getConfig().getConfigurationSection("votes-npc-locations.").getKeys(false)) {
+            Location location = new Location(Bukkit.getWorld("world"),
+                    main.getConfig().getDouble("votes-npc-locations." + s + ".x"),
+                    main.getConfig().getDouble("votes-npc-locations." + s + ".y"),
+                    main.getConfig().getDouble("votes-npc-locations." + s + ".z"),
+                    (float) main.getConfig().getDouble("votes-npc-locations." + s + ".yaw"),
+                    (float) main.getConfig().getDouble("votes-npc-locations." + s + ".pitch"));
+
+            main.getGameManager().spawnNPC(location, texture, signature, nameColour, "Votemaster");
+        }
+
+
+        /*Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
             @Override
             public void run() {
                 String npcName = ChatColor.GOLD + "Votemaster";
@@ -83,11 +126,25 @@ public class LobbyManager {
 
                 System.out.println("spawning npc for votes");
             }
-        }, 200L);
+        }, 200L);*/
     }
 
     private void spawnDiscordNPC() {
-        Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
+        String texture = ConfigManager.getDiscordSkinTexture();
+        String signature = ConfigManager.getDiscordSkinSignature();
+        String nameColour = ChatColor.BLUE + "";
+        // get the locations and spawn the NPCs for fiend fight
+        for (String s : main.getConfig().getConfigurationSection("discord.spawn.").getKeys(false)) {
+            Location location = new Location(Bukkit.getWorld("world"),
+                    main.getConfig().getDouble("discord.spawn." + s + ".x"),
+                    main.getConfig().getDouble("discord.spawn." + s + ".y"),
+                    main.getConfig().getDouble("discord.spawn." + s + ".z"),
+                    (float) main.getConfig().getDouble("discord.spawn." + s + ".yaw"),
+                    (float) main.getConfig().getDouble("discord.spawn." + s + ".pitch"));
+
+            main.getGameManager().spawnNPC(location, texture, signature, nameColour, "Discord");
+        }
+        /*Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
             @Override
             public void run() {
                 String npcName = ChatColor.BLUE + "Discord";
@@ -104,7 +161,7 @@ public class LobbyManager {
 
                 System.out.println("spawning npc for discord");
             }
-        }, 200L);
+        }, 200L);*/
 
     }
 
@@ -180,6 +237,7 @@ public class LobbyManager {
 
         // check if this player is in the list of players who have been sent to a minigame server
         checkIfServerToRejoin(player.getUniqueId());
+        lstNoPvp.add(player.getUniqueId());
 
         player.getInventory().clear();
         player.setGameMode(GameMode.SURVIVAL);
@@ -191,20 +249,40 @@ public class LobbyManager {
         player.getInventory().setLeggings(null);
         player.getInventory().setBoots(null);
 
+        addLobbyHotbarItems(player);
+        showJoinMessages(player);
+    }
+
+    public void addLobbyHotbarItems(Player player) {
         ItemStack compass = new ItemStack(Material.NETHER_STAR);
         ItemMeta ism = compass.getItemMeta();
         ism.setDisplayName(ChatColor.BLUE+ "Go to lobby parkour");
         compass.setItemMeta(ism);
         player.getInventory().setItem(8,compass);
-      //  if (player.isOp() || player.getName().equalsIgnoreCase("monkey_bean") || player.getName().equalsIgnoreCase("blouse00")) {
-         //   player.getInventory().setItem(1, LobbyUtils.comsticsMenuItem());
-     //   }
+        //  if (player.isOp() || player.getName().equalsIgnoreCase("monkey_bean") || player.getName().equalsIgnoreCase("blouse00")) {
+        //   player.getInventory().setItem(1, LobbyUtils.comsticsMenuItem());
+        //   }
         // give them compass for teleport to parkour
         ItemStack shopItem = new ItemStack(Material.BEACON);
         ItemMeta shopMeta = shopItem.getItemMeta();
         shopMeta.setDisplayName(ChatColor.GOLD + "Cosmetics");
         shopItem.setItemMeta(shopMeta);
         player.getInventory().setItem(1,shopItem);
+
+        ItemStack miniGameItem = new ItemStack(Material.MELON);
+        ItemMeta miniGameItemItemMeta = miniGameItem.getItemMeta();
+        miniGameItemItemMeta.setDisplayName(ChatColor.BLUE + "Sumo Practice");
+        miniGameItem.setItemMeta(miniGameItemItemMeta);
+        player.getInventory().setItem(2,miniGameItem);
+
+        if (main.getKitPvP() != null ) {
+            ItemStack kitPvpItem = new ItemStack(Material.BLAZE_ROD);
+            ItemMeta kitPvpItemMeta = kitPvpItem.getItemMeta();
+            kitPvpItemMeta.setDisplayName(ChatColor.RED + "Kit PvP");
+            kitPvpItem.setItemMeta(kitPvpItemMeta);
+            player.getInventory().setItem(3, kitPvpItem);
+        }
+
         // give them netherStar to open game join inventory
         ItemStack netherStar = new ItemStack(Material.COMPASS);
         ItemMeta netherStarMeta = netherStar.getItemMeta();
@@ -213,7 +291,6 @@ public class LobbyManager {
         player.getInventory().setItem(0,netherStar);
         // set active hotbar slot to middle
         player.getInventory().setHeldItemSlot(4);
-        showJoinMessages(player);
     }
 
     private void checkIfServerToRejoin(UUID uuid) {
@@ -358,7 +435,7 @@ public class LobbyManager {
             UUID uuid = player.getUniqueId();
           //  System.out.println("Checking " + player.getName() + " is in list = " + (lstNoPvp.contains(uuid) ? "true" : "false"));
 
-            if (isInRegion(player.getLocation(), noPvpBottomCorner, noPvpTopCorner) || isInRegion(player.getLocation(), noPvpBottomCorner2, noPvpTopCorner2)) {
+          /*  if (isInRegion(player.getLocation(), noPvpBottomCorner, noPvpTopCorner) || isInRegion(player.getLocation(), noPvpBottomCorner2, noPvpTopCorner2)) {
                 if (!lstNoPvp.contains(uuid)){
                     lstNoPvp.add(uuid);
                     player.sendMessage( ChatColor.GREEN + "Leaving PVP area");
@@ -368,8 +445,41 @@ public class LobbyManager {
                     lstNoPvp.remove(uuid);
                     player.sendMessage(ChatColor.RED + "Entering PVP area");
                 }
+            }*/
+
+            if (isInPvpArea(player.getLocation(), pvpCoords)) {
+                if (lstNoPvp.contains(uuid)){
+                    lstNoPvp.remove(uuid);
+                    player.sendMessage(ChatColor.RED + "Entering PVP area");
+                }
+            } else {
+                if (!lstNoPvp.contains(uuid)){
+                    lstNoPvp.add(uuid);
+                    player.sendMessage( ChatColor.GREEN + "Leaving PVP area");
+                }
             }
         }
+    }
+
+    public static boolean isInPvpArea(Location playerLocation, int[][] pvpCoords) {
+
+        double x = playerLocation.getX();
+        double y = playerLocation.getY();
+        double z = playerLocation.getZ();
+
+        for (int[] pvpCoord : pvpCoords) {
+            double lowx = pvpCoord[0];
+            double highx = pvpCoord[1];
+            double lowy = pvpCoord[2];
+            double highy = pvpCoord[3];
+            double lowz = pvpCoord[4];
+            double highz = pvpCoord[5];
+
+            if ((x <= highx && x >= lowx) && (y <= highy && y >= lowy) && (z <= highz && z >= lowz)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static boolean isInRegion(Location playerLocation, Location lowestPos, Location highestPos){
