@@ -262,7 +262,7 @@ public class SumoMiniGame extends Minigame {
 
     public void   entityDamageEntityFired(EntityDamageByEntityEvent e) {
         if (difficulty > 2) { // only apply knockback on hard and hacker difficulties
-          //  System.out.println("EntityDamageByEntityEvent triggered.");
+         //   System.out.println("EntityDamageByEntityEvent triggered.");
             if (e.getEntity() instanceof Player) {
                 if (!playersInGame.contains((Player) e.getEntity())) {
                     return;
@@ -282,11 +282,15 @@ public class SumoMiniGame extends Minigame {
         }
     }
 
+    public boolean isPlayerInGame(Player player) {
+        return playersInGame.contains(player);
+    }
+
     private void doKnockback(Entity playerEntity, Entity damagerEntity, boolean playerIsDamager) {
           //  System.out.println("Applying knockback to " + (playerIsDamager ? "bot" : "player"));
             double originalLength = playerEntity.getVelocity().length();
             double originalY = playerEntity.getVelocity().getY();
-            System.out.println("original length = " + originalLength);
+        //    System.out.println("original length = " + originalLength);
           //  playerEntity.setVelocity( damagerEntity.getLocation().getDirection().multiply(1D));
 
             Vector direction = playerEntity.getLocation().toVector().subtract(damagerEntity.getLocation().toVector());
@@ -307,7 +311,7 @@ public class SumoMiniGame extends Minigame {
                     direction.setY(0);
                 }
             }
-        System.out.println("vector length after kb = " + direction.length());
+      //  System.out.println("vector length after kb = " + direction.length());
         playerEntity.setVelocity( direction);
       //  System.out.println("new vector length = " + playerEntity.getVelocity().length());
     }

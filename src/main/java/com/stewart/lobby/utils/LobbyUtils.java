@@ -1,12 +1,20 @@
 package com.stewart.lobby.utils;
 
+import com.stewart.lobby.Lobby;
+import io.netty.buffer.Unpooled;
+import net.minecraft.server.v1_8_R3.PacketDataSerializer;
+import net.minecraft.server.v1_8_R3.PacketPlayOutCustomPayload;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.scoreboard.ScoreboardManager;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 
@@ -30,7 +38,58 @@ public class LobbyUtils {
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.sendMessage(broadCastMessage);
             p.playSound(p.getLocation(), Sound.CHICKEN_EGG_POP, 1.0f, 1.0f);
+
+
         }
+    }
+
+    public static void leaveKitPVP(Player player, Lobby lobby) {
+        lobby.getKitPvP().getArena().removePlayerFromKitPvP(player);
+        // reset scoreboard
+        ScoreboardManager sm = Bukkit.getServer().getScoreboardManager();
+        player.setScoreboard(sm.getNewScoreboard());
+        // teleport to lobby spawn
+        lobby.getLobbyManager().playerJoined(player);
+    }
+
+    public static void openVoteMasterBook(Player player)
+    {
+        ItemStack book = getVoteBook();
+        ItemStack oldItem = player.getItemInHand(); //Get item in hand so we can set it back
+        player.setItemInHand(book); //Set item in hand to book
+        PacketPlayOutCustomPayload packet = new PacketPlayOutCustomPayload("MC|BOpen", new PacketDataSerializer(Unpooled.buffer())); //Create packet that tells the player to open a book
+        CraftPlayer craftPlayer = (CraftPlayer)player; //Craftplayer for sending packet
+        craftPlayer.getHandle().playerConnection.sendPacket(packet); //Send packet
+        player.setItemInHand(oldItem); //Set item in hand back
+    }
+
+    @NotNull
+    private static ItemStack getVoteBook() {
+        String p1 = (ChatColor.GOLD + "Vote for BashyBashy\n" +
+                ChatColor.RESET + "Earn BashyCoins every time you vote!\n" +
+                "\n" +
+                "Voting helps this server by making it visible to more players.\n" +
+                "\n" +
+                "1 Click the vote NPC and select Open voting menu.\n" +
+                "\n" +
+                ChatColor.GRAY + "Continued...");
+        ItemStack book = new ItemStack(Material.WRITTEN_BOOK); //Create book ItemStack
+        BookMeta meta = (BookMeta)book.getItemMeta(); //Get BookMeta
+        meta.addPage(p1); //Add a page
+        String p2 = ("2 Each green block in the menu represents a site that can be voted on.\n" +
+                "\n" +
+                "3 Clicking a block puts a link to that site in your chat window.\n" +
+                "\n" +
+                ChatColor.GRAY + "Continued...");
+        meta.addPage(p2);
+        String p3 = ("4 Click the link in your chat window then the yes button to go to the voting site.\n" +
+                "\n" +
+                "5 Follow the sites instructions to vote for BashyBashy.com\n" +
+                "\n" +
+                "6 Repeat for each voting site and get BashyCoins for each vote!");
+        meta.addPage(p3); //Add another page
+        book.setItemMeta(meta); //Set meta
+        return book;
     }
 
     public static String getMinecraftVersionFromVIAProtocol(int protocolNumber) {

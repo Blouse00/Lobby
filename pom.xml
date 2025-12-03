@@ -141,7 +141,7 @@
         <dependency>
             <groupId>com.stewart</groupId>
             <artifactId>bb_api</artifactId>
-            <version>1.80</version>
+            <version>1.94</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

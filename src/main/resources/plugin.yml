@@ -6,3 +6,7 @@ depends: [PartyAndFriends]
 commands:
   pw:
   fly:
+  rankgiveaway:
+  invis:
+  jump:
+  speed:

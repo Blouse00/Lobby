@@ -49,6 +49,18 @@ public class GameInventory {
          //   }
         }
 
+        ItemStack kitPvpItem = new ItemStack(Material.MELON);
+        ItemMeta kitPvpItemMeta = kitPvpItem.getItemMeta();
+        kitPvpItemMeta.setDisplayName(ChatColor.GOLD + "Kit PvP");
+        kitPvpItem.setItemMeta(kitPvpItemMeta);
+        inv.setItem(12, kitPvpItem);
+
+        ItemStack miniGameItem = new ItemStack(Material.BLAZE_ROD);
+        ItemMeta miniGameItemItemMeta = miniGameItem.getItemMeta();
+        miniGameItemItemMeta.setDisplayName(ChatColor.GOLD + "Sumo Practice");
+        miniGameItem.setItemMeta(miniGameItemItemMeta);
+        inv.setItem(14,miniGameItem);
+
         //FRAME
         ItemStack frame = new ItemStack(Material.STAINED_GLASS_PANE, 1, DyeColor.BLACK.getData());
         ItemMeta frameMeta = frame.getItemMeta();
@@ -227,6 +239,14 @@ public class GameInventory {
                 lst.add(ChatColor.GRAY + "Claim your own plot and build a house.");
                 lst.add(ChatColor.GRAY + "Play how you want - mine, farm or build.");
                 lst.add(ChatColor.GRAY + "Go kill the Enderdragon! -The end resets regularly.");
+                itemMeta.setLore(lst);
+                break;
+            }
+            case ("traps game"): {
+                lst.add(ChatColor.GRAY + "Join our 1.8 SMP traps game.");
+                lst.add(ChatColor.GRAY + "Place traps to kill other players.");
+                lst.add(ChatColor.GRAY + "Complete quests to get points.");
+                lst.add(ChatColor.GRAY + "Watch out for loot-chests .... and Giants!");
                 itemMeta.setLore(lst);
                 break;
             }

@@ -40,6 +40,7 @@ public class ConnectListener implements Listener {
             System.out.println("has already accepted the rules");
         }
 
+
         Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, new Runnable() {
             @Override
             public void run() {
@@ -53,7 +54,7 @@ public class ConnectListener implements Listener {
             ViaAPI api = Via.getAPI(); // Get the API
             int version = api.getPlayerVersion(player); // Get the protocol version
             String strVersion = LobbyUtils.getMinecraftVersionFromVIAProtocol(version);
-            Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, () -> addAnticheatBypassPermission(version == 770, player), 20L);
+          //  Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, () -> addAnticheatBypassPermission(version == 770, player), 20L);
 
 
             String versionMessage = "";

@@ -110,6 +110,22 @@ public class ConfigManager {
         return config.getString("discord-npc-signature");
     }
 
+    public  static String getSumoSkinTexture() {
+        return config.getString("sumo-npc-texture");
+    }
+
+    public  static String getKitPVPSkinSignature() {
+        return config.getString("kitpvp-npc-signature");
+    }
+
+    public  static String getKitPVPSkinTexture() {
+        return config.getString("kitpvp-npc-texture");
+    }
+
+    public  static String getSumoSkinSignature() {
+        return config.getString("sumo-npc-signature");
+    }
+
     public static List<String> getPostRules() {
         return config.getStringList("rules-post");
     }

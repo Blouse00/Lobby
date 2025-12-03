@@ -4,19 +4,14 @@ import com.stewart.lobby.Lobby;
 import com.stewart.lobby.instances.Game;
 import com.stewart.lobby.manager.ConfigManager;
 import com.stewart.lobby.minigames.SumoDifficultyInventory;
-import com.stewart.lobby.utils.GameInventory;
-import com.stewart.lobby.utils.LobbyUtils;
-import com.stewart.lobby.utils.NewPlayerGameInventory;
-import com.stewart.lobby.utils.RulesInventory;
+import com.stewart.lobby.utils.*;
 import de.simonsator.partyandfriends.spigot.api.pafplayers.PAFPlayer;
 import de.simonsator.partyandfriends.spigot.api.pafplayers.PAFPlayerManager;
 import de.simonsator.partyandfriends.spigot.api.party.PartyManager;
 import de.simonsator.partyandfriends.spigot.api.party.PlayerParty;
-import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.event.NPCLeftClickEvent;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
 import net.citizensnpcs.api.npc.NPC;
-import net.citizensnpcs.trait.SkinTrait;
 import net.minecraft.server.v1_8_R3.IChatBaseComponent;
 import net.minecraft.server.v1_8_R3.PacketPlayOutTitle;
 import org.bukkit.*;
@@ -29,7 +24,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityPortalEvent;
@@ -39,7 +33,6 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.event.weather.ThunderChangeEvent;
 import org.bukkit.event.weather.WeatherChangeEvent;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scoreboard.ScoreboardManager;
 
@@ -61,7 +54,15 @@ public class LobbyListener implements Listener {
     public void onClick(InventoryClickEvent e) {
         // allow players who are op & in creative mode to change stuff
       //  e.setCancelled(true);
-        if (!e.getWhoClicked().isOp() && !e.getWhoClicked().getGameMode().equals(GameMode.CREATIVE)) {
+/*        if (!e.getWhoClicked().isOp() && !e.getWhoClicked().getGameMode().equals(GameMode.CREATIVE)) {
+            e.setCancelled(true);
+        } else {
+            System.out.println("player is op in creative mode");
+        }*/
+
+        if (e.getWhoClicked().isOp() && e.getWhoClicked().getGameMode().equals(GameMode.CREATIVE)) {
+            System.out.println("player is op in creative mode");
+        } else {
             e.setCancelled(true);
         }
 
@@ -196,6 +197,19 @@ public class LobbyListener implements Listener {
                 lobby.getLobbyManager().playerJoined(player);
                 player.performCommand("tutorial BashyIntro");
             }
+        } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
+                .equals("" + ChatColor.GOLD + ChatColor.BOLD + "VOTE FOR BASHYBASHY") &&
+                e.getCurrentItem() != null) {
+
+            Player player = (Player) e.getWhoClicked();
+            if (e.getRawSlot() == 20) {
+                // rules not accepted
+                player.closeInventory();
+                LobbyUtils.openVoteMasterBook(player);
+            }
+            if (e.getRawSlot() == 24) {
+                player.performCommand("vote URL");
+            }
         }
     }
 
@@ -298,12 +312,13 @@ public class LobbyListener implements Listener {
             if (lobby.isPlayerInKitPvP(player)) {
                 if (slot == 8) {
                     // exit kit pvp
-                    lobby.getKitPvP().getArena().removePlayerFromKitPvP(player);
+                    LobbyUtils.leaveKitPVP(player, lobby);
+                   /* lobby.getKitPvP().getArena().removePlayerFromKitPvP(player);
                     // reset scoreboard
                     ScoreboardManager sm = Bukkit.getServer().getScoreboardManager();
                     player.setScoreboard(sm.getNewScoreboard());
                     // teleport to lobby spawn
-                    lobby.getLobbyManager().playerJoined(player);
+                    lobby.getLobbyManager().playerJoined(player);*/
                     e.setCancelled(true);
                 }
             } else {
@@ -318,15 +333,11 @@ public class LobbyListener implements Listener {
                     player.chat("/uc menu");
                     e.setCancelled(true);
                 }
-                if (slot == 2) {
-                    // open sumo difficulty inventory
+
+                if (slot == 3) {
+                    // go to sumo
                     SumoDifficultyInventory sumoDifficultyInventory = new SumoDifficultyInventory();
                     player.openInventory(sumoDifficultyInventory.getSumoDifficultyInventory(player));
-                    e.setCancelled(true);
-                }
-                if (slot == 3) {
-                    // go to kit pvp
-                    lobby.sendPlayerToKitPvP(player);
                     e.setCancelled(true);
                 }
                 if (slot == 8) {
@@ -349,26 +360,81 @@ public class LobbyListener implements Listener {
     }
 
     @EventHandler
+    public void onStopNaughtiness(PlayerCommandPreprocessEvent event) {
+        // more to prevent item frame interaction (game pictures)
+      //  if (!event.getPlayer().isOp()) {
+            if (event.getMessage().contains("tutorial") || event.getMessage().contains("tut")) {
+                System.out.println("prevented tutorial command");
+                Player player = event.getPlayer();
+                if (lobby.isPlayerInKitPvP(player) ||
+                        lobby.getRuleLobbyManager().containsPlayer(player.getUniqueId()) ||
+                lobby.getGameManager().getMiniGameManger().isPlayerInSumoGame(player)) {
+                    player.sendMessage(ChatColor.RED + "NAUGHTY!!!!!!");
+                    event.setCancelled(true);
+                }
+            }
+      //  }
+    }
+
+    @EventHandler
     public void damage(EntityDamageEvent event) //Listens to EntityDamageEvent
     {
 
+      //  System.out.println("Damage event fired");
         // System.out.println("Damage type = " + event.getEntity().getType().toString());
         if (event.getEntity().getType() == EntityType.ITEM_FRAME) {
             event.setCancelled(true);
             return;
         }
 
+        if (event.getEntity().hasMetadata("NPC")) {
+            if (event instanceof EntityDamageByEntityEvent) {
+                EntityDamageByEntityEvent ev = (EntityDamageByEntityEvent) event;
+                if (ev.getDamager() instanceof Player) {
+                    Player damager = (Player) ev.getDamager();
+                    if (!lobby.getGameManager().getMiniGameManger().isPlayerInSumoGame(damager)) {
+                        // not in sumo don't allow damage to npc
+                     //   System.out.println("NPC damaged");
+                        event.setCancelled(true);
+                        return;
+                    }
+                }
+            }
+        }
+
 
         // each time a player damages a player I need to log who damaged who in a hashmap in the arena
         // this allows me to determine who killed a player in the EntityDamageEntity event above.
-        if (event.getEntity() instanceof Player) {
-            Player damaged = (Player) event.getEntity();
+        if (event.getEntity() instanceof Player damaged) {
+            if (event.getCause().equals(EntityDamageEvent.DamageCause.VOID)) {
+                event.setCancelled(true);
+
+                // bring the player back to 'life'
+                damaged.setHealth(20.0);
+                damaged.setFoodLevel(20);
+                // handles checking if game won etc & respawning 'killed' player.
+                // damager may be null
+                lobby.getLobbyManager().playerKilled(damaged);
+                PacketPlayOutTitle title = new PacketPlayOutTitle(PacketPlayOutTitle.EnumTitleAction.TITLE,
+                        IChatBaseComponent.ChatSerializer.a("{\"text\":\"" + "§4" + "You died!" + "\"}"), 3, 150, 50);
+                ((CraftPlayer) Bukkit.getPlayer(damaged.getUniqueId())).getHandle().playerConnection.sendPacket(title);
+                return;
+            }
             if (!lobby.isPlayerInKitPvP(damaged)) {
+                // not in kit pvp
+                if (lobby.getGameManager().getMiniGameManger().isPlayerInSumoGame(damaged)) {
+                    // if in sumo don't cancel damage I need the knockback from it, damage set to 0 in sumo game.
+                    CheckPlayerDies(damaged, event);
+                    return;
+                }
                 // check if the player is currently spawn protected or in the rules or no pvp area.
                 if (lobby.getLobbyManager().playerSpawnProtected(damaged) ||
                         lobby.getRuleLobbyManager().containsPlayer(damaged.getUniqueId()) ||
                         lobby.getLobbyManager().isNoPvp(damaged.getUniqueId())) {
+
+                   // not spawn protected, in rules or no pvp area
                     event.setCancelled(true);
+                   // System.out.println("Damage event cancelled due to spawn protection / rules / no pvp");
                     return;
                 }
 
@@ -393,7 +459,7 @@ public class LobbyListener implements Listener {
     }
 
     private void CheckPlayerDies(Player player, EntityDamageEvent ev) {
-        //   System.out.println("Check player dies fired damage = " + ev.getFinalDamage());
+         //  System.out.println("Check player dies fired damage = " + ev.getFinalDamage());
         //   System.out.println("player health = " + player.getHealth());
         if (player.getHealth() - ev.getFinalDamage() <= 0) {
             System.out.println("Player would have died");
@@ -422,7 +488,7 @@ public class LobbyListener implements Listener {
     public void onRightClick(NPCRightClickEvent event) {
         NPC npc = event.getNPC();
         Player player = event.getClicker();
-        System.out.println("Npc clicked: " + npc.getName());
+     //   System.out.println("Npc clicked: " + npc.getName());
         npcClickEvent(player, npc.getName());
     }
 
@@ -430,9 +496,12 @@ public class LobbyListener implements Listener {
     public void onLeftClick(NPCLeftClickEvent event) {
         NPC npc = event.getNPC();
         Player player = event.getClicker();
-        System.out.println("Npc clicked: " + npc.getName());
+     //   System.out.println("Npc clicked: " + npc.getName());
         npcClickEvent(player, npc.getName());
     }
+
+   // SumoDifficultyInventory sumoDifficultyInventory = new SumoDifficultyInventory();
+              //      player.openInventory(sumoDifficultyInventory.getSumoDifficultyInventory(player));
 
     private void npcClickEvent(Player player, String npcName) {
         if (npcName.toLowerCase().contains("rulemaster")) {
@@ -452,9 +521,14 @@ public class LobbyListener implements Listener {
                 //  player.sendMessage("&9║  &cClick here: &e" + ChatColor.UNDERLINE + "https://discord.gg/Ypx4kTRbHp &9║");
             }
 
-
+        } else if (npcName.toLowerCase().contains("sumo bots")) {
+            SumoDifficultyInventory sumoDifficultyInventory = new SumoDifficultyInventory();
+            player.openInventory(sumoDifficultyInventory.getSumoDifficultyInventory(player));
+        } else if (npcName.toLowerCase().contains("kit pvp")) {
+            lobby.sendPlayerToKitPvP(player);
         } else if (npcName.toLowerCase().contains("votemaster")) {
-            player.performCommand("vote URL");
+            VoteInventory voteInventory = new VoteInventory(lobby);
+            player.openInventory(voteInventory.getVoteInventory(player));
         } else {
             if (npcName.toLowerCase().contains("fiendfight")) {
                 GameInventory gameInventory = new GameInventory(lobby);
@@ -568,7 +642,7 @@ public class LobbyListener implements Listener {
 
     @EventHandler
     public void onPlayerHit(EntityDamageByEntityEvent e) {
-     //   System.out.println("EntityDamageByEntityEvent triggered.");
+      //  System.out.println("outer EntityDamageByEntityEvent triggered.");
         if (e.getEntity() instanceof Player) {
             if (lobby.isPlayerInKitPvP((Player) e.getEntity())) {
                 return;

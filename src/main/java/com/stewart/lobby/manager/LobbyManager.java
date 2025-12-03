@@ -19,6 +19,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -38,6 +39,9 @@ public class LobbyManager {
     // keeps a list of all people currently spawn protected and the game time it started
     private final HashMap<UUID, Integer> playerSpawnProtect = new HashMap<>();
     private final HashMap<UUID, Integer> playerPortalling = new HashMap<>();
+    private final HashMap<UUID, Integer> playerCooldownSpeed = new HashMap<>();
+    private final HashMap<UUID, Integer> playerCooldownInvis = new HashMap<>();
+    private final HashMap<UUID, Integer> playerCooldownJump = new HashMap<>();
     private  int particleIterator = 19; // Task will run 10 times.
     private BukkitTask particleTask = null;
     private final List<UUID> lstNoPvp;
@@ -90,6 +94,8 @@ public class LobbyManager {
     private void spawnNonGameNPCS() {
         spawnVoteMaster();
         spawnDiscordNPC();
+        spawnSumoNPC();
+        spawnKitPVPNPC();
     }
 
     private void spawnVoteMaster() {
@@ -165,6 +171,40 @@ public class LobbyManager {
 
     }
 
+    private void spawnSumoNPC() {
+        String texture = ConfigManager.getSumoSkinTexture();
+        String signature = ConfigManager.getSumoSkinSignature();
+        String nameColour = ChatColor.GOLD + "";
+        // get the locations and spawn the NPCs for fiend fight
+        for (String s : main.getConfig().getConfigurationSection("sumo-npc-spawn.").getKeys(false)) {
+            Location location = new Location(Bukkit.getWorld("world"),
+                    main.getConfig().getDouble("sumo-npc-spawn." + s + ".x"),
+                    main.getConfig().getDouble("sumo-npc-spawn." + s + ".y"),
+                    main.getConfig().getDouble("sumo-npc-spawn." + s + ".z"),
+                    (float) main.getConfig().getDouble("sumo-npc-spawn." + s + ".yaw"),
+                    (float) main.getConfig().getDouble("sumo-npc-spawn." + s + ".pitch"));
+
+            main.getGameManager().spawnNPC(location, texture, signature, nameColour, "Sumo bots");
+        }
+    }
+
+    private void spawnKitPVPNPC() {
+        String texture = ConfigManager.getKitPVPSkinTexture();
+        String signature = ConfigManager.getKitPVPSkinSignature();
+        String nameColour = ChatColor.GOLD + "";
+        // get the locations and spawn the NPCs for fiend fight
+        for (String s : main.getConfig().getConfigurationSection("kitpvp-npc-spawn.").getKeys(false)) {
+            Location location = new Location(Bukkit.getWorld("world"),
+                    main.getConfig().getDouble("kitpvp-npc-spawn." + s + ".x"),
+                    main.getConfig().getDouble("kitpvp-npc-spawn." + s + ".y"),
+                    main.getConfig().getDouble("kitpvp-npc-spawn." + s + ".z"),
+                    (float) main.getConfig().getDouble("kitpvp-npc-spawn." + s + ".yaw"),
+                    (float) main.getConfig().getDouble("kitpvp-npc-spawn." + s + ".pitch"));
+
+            main.getGameManager().spawnNPC(location, texture, signature, nameColour, "Kit PVP");
+        }
+    }
+
     private void startClock() {
         gameSeconds = 0;
         BukkitScheduler scheduler = Bukkit.getServer().getScheduler();
@@ -189,15 +229,27 @@ public class LobbyManager {
             }
         }
 
+        if (main.getLobbyLeaderBoardManager() != null)  {
+            main.getLobbyLeaderBoardManager().updateNextLeaderboard();
+        }
+
+
         checkPlayerZone();
         // removes players from the spawn protect list who has been there 5 seconds or more
         playerSpawnProtect.entrySet().removeIf(e -> e.getValue() + 4 < gameSeconds );
+        // removes players from the cooldown for the speed command
+        playerCooldownSpeed.entrySet().removeIf(e -> e.getValue() + 29 < gameSeconds );
+        // removes players from the cooldown for the invis command
+        playerCooldownInvis.entrySet().removeIf(e -> e.getValue() + 29 < gameSeconds );
+        // removes players from the cooldown for the jump command
+        playerCooldownJump.entrySet().removeIf(e -> e.getValue() + 29 < gameSeconds );
+
         // removes players from the portallingt list who has been there 4 seconds or more
         playerPortalling.entrySet().removeIf(e -> e.getValue() + 3 < gameSeconds );
         gameSeconds += 1;
         // every minute remove players from the sent to server list who have been there 60 minutes or more
         if (gameSeconds%60 == 0) {
-            main.getGameManager().removePlayerServerInfoOverMinutes(2);
+            main.getGameManager().removePlayerServerInfoOverMinutes(60);
         }
     }
 
@@ -269,19 +321,19 @@ public class LobbyManager {
         shopItem.setItemMeta(shopMeta);
         player.getInventory().setItem(1,shopItem);
 
-        ItemStack miniGameItem = new ItemStack(Material.MELON);
+        ItemStack miniGameItem = new ItemStack(Material.BLAZE_ROD);
         ItemMeta miniGameItemItemMeta = miniGameItem.getItemMeta();
         miniGameItemItemMeta.setDisplayName(ChatColor.BLUE + "Sumo Practice");
         miniGameItem.setItemMeta(miniGameItemItemMeta);
-        player.getInventory().setItem(2,miniGameItem);
+        player.getInventory().setItem(3,miniGameItem);
 
-        if (main.getKitPvP() != null ) {
+/*        if (main.getKitPvP() != null ) {
             ItemStack kitPvpItem = new ItemStack(Material.BLAZE_ROD);
             ItemMeta kitPvpItemMeta = kitPvpItem.getItemMeta();
             kitPvpItemMeta.setDisplayName(ChatColor.RED + "Kit PvP");
             kitPvpItem.setItemMeta(kitPvpItemMeta);
             player.getInventory().setItem(3, kitPvpItem);
-        }
+        }*/
 
         // give them netherStar to open game join inventory
         ItemStack netherStar = new ItemStack(Material.COMPASS);
@@ -308,6 +360,8 @@ public class LobbyManager {
                 SockExchangeApi api = SockExchangeApi.instance();
                 byte[] byteArray = inputString.getBytes();
                 api.sendToServer("LobbyChannel", byteArray, playerServerInfo.getSockName());
+
+                main.getGameManager().addPlayerServerInfo(uuid, playerServerInfo.getSockName());
             } else {
                 // server is offline
                 System.out.println("server is offline " + playerServerInfo.getSockName());
@@ -447,18 +501,38 @@ public class LobbyManager {
                 }
             }*/
 
+            if (isOutsideKitPvpArea(player.getLocation()) && main.isPlayerInKitPvP(player)) {
+                LobbyUtils.leaveKitPVP(player, main);
+                player.sendMessage(ChatColor.RED + "You have been returned to the lobby as you left the Kit PVP area.");
+                continue;
+            }
+
             if (isInPvpArea(player.getLocation(), pvpCoords)) {
-                if (lstNoPvp.contains(uuid)){
-                    lstNoPvp.remove(uuid);
-                    player.sendMessage(ChatColor.RED + "Entering PVP area");
-                }
+                // player.sendMessage(ChatColor.RED + "Entering PVP area");
+                lstNoPvp.remove(uuid);
             } else {
                 if (!lstNoPvp.contains(uuid)){
                     lstNoPvp.add(uuid);
-                    player.sendMessage( ChatColor.GREEN + "Leaving PVP area");
+                   // player.sendMessage( ChatColor.GREEN + "Leaving PVP area");
                 }
             }
         }
+    }
+
+    public static boolean isOutsideKitPvpArea(Location playerLocation) {
+
+        double x = playerLocation.getX();
+        double y = playerLocation.getY();
+        double z = playerLocation.getZ();
+
+        double lowx = -190;
+        double highx = -85;
+        double lowy = 37;
+        double highy = 47;
+        double lowz = 46;
+        double highz = 152;
+
+        return (!(x <= highx) || !(x >= lowx)) || (!(y <= highy) || !(y >= lowy)) || (!(z <= highz) || !(z >= lowz));
     }
 
     public static boolean isInPvpArea(Location playerLocation, int[][] pvpCoords) {
@@ -500,6 +574,8 @@ public class LobbyManager {
     }
 
     public boolean isNoPvp(UUID uuid) {
+       // System.out.println("Checking " + uuid + " is in no pvp list = " + (lstNoPvp.contains(uuid) ? "true" : "false"));
+
         return lstNoPvp.contains(uuid);
     }
 
@@ -508,6 +584,39 @@ public class LobbyManager {
     }
     public void sendMessage(String message) {
         Bukkit.broadcastMessage(ChatColor.WHITE + message);
+    }
+
+    public void playerUsedSpeedCommand(Player player) {
+        if (playerCooldownSpeed.containsKey(player.getUniqueId())) {
+            int secondsLeft = (playerCooldownSpeed.get(player.getUniqueId()) + 30) - gameSeconds;
+            player.sendMessage(ChatColor.RED + "You must wait " + secondsLeft + " seconds before using Speed again.");
+        } else {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 200, 1));
+            playerCooldownSpeed.put(player.getUniqueId(), gameSeconds);
+            player.sendMessage(ChatColor.GREEN + "You feel swift for 10 seconds!");
+        }
+    }
+
+    public void playerUsedInvisCommand(Player player) {
+        if( playerCooldownInvis.containsKey(player.getUniqueId())) {
+            int secondsLeft = (playerCooldownInvis.get(player.getUniqueId()) + 30) - gameSeconds;
+            player.sendMessage(ChatColor.RED + "You must wait " + secondsLeft + " seconds before using Invisibility again.");
+        } else {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 200, 1));
+            playerCooldownInvis.put(player.getUniqueId(), gameSeconds);
+            player.sendMessage(ChatColor.GREEN + "You feel invisible for 10 seconds!");
+        }
+    }
+
+    public void playerUsedJumpCommand(Player player) {
+        if( playerCooldownJump.containsKey(player.getUniqueId())) {
+            int secondsLeft = (playerCooldownJump.get(player.getUniqueId()) + 30) - gameSeconds;
+            player.sendMessage(ChatColor.RED + "You must wait " + secondsLeft + " seconds before using Jump again.");
+        } else {
+            player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP, 200, 1));
+            playerCooldownJump.put(player.getUniqueId(), gameSeconds);
+            player.sendMessage(ChatColor.GREEN + "You feel bouncy for 10 seconds!");
+        }
     }
 
 }

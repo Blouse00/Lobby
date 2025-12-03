@@ -145,7 +145,7 @@ public class Game {
         if (allowJoin) {
         if (this.isBlocked) {
             // in the process of sending a player, wait till that's complete
-          //  System.out.println("game is blocked, adding player to queue");
+            System.out.println("game is blocked, adding player to queue");
             addPlayerToQueue(player, false);
         } else {
             // player requested to join game
@@ -160,13 +160,13 @@ public class Game {
                 System.out.println("Player not eligible for smp");
                 return;
             }
-            // player.sendMessage("Attempting to join " + this.getGameName() + "!");
             // loop through the servers whose status is recruiting.
             // make a list of possible server sockNames
+            System.out.println("Looking for available servers for game " + this.name + " max players " + maxPlayers + " server list size " + serverList.size());
             HashMap<String, Integer> lstAvailable = new HashMap<>();
             for (GameServer gameServer : serverList) {
-              //  System.out.println("status: " + gameServer.getGameStatus() + " . p: " + gameServer.getCurrentPlayers() +
-              //          " max " + maxPlayers);
+                System.out.println("status: " + gameServer.getGameStatus() + " . p: " + gameServer.getCurrentPlayers() +
+                        " max " + maxPlayers);
                 if ((gameServer.getGameStatus().equals("RECRUITING") || gameServer.getGameStatus().equals("COUNTDOWN"))
                         && gameServer.getCurrentPlayers() < maxPlayers) {
                //     System.out.println("adding eligible server to list of possibles");
@@ -384,7 +384,7 @@ public class Game {
             }
             player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
             if (sockName.toLowerCase().contains("monster") ||sockName.toLowerCase().contains("assault")
-                    || sockName.toLowerCase().contains("bedwars")) {
+                    || sockName.toLowerCase().contains("bedwars") || sockName.toLowerCase().contains("fulliron")) {
                 main.getGameManager().addPlayerServerInfo(player.getUniqueId(), sockName);
             }
             LobbyUtils.sendGameJoinMessage(player.getName(), this.name);

@@ -77,6 +77,17 @@ public class MiniGameManger {
         }
     }
 
+    public Boolean isPlayerInSumoGame(Player player) {
+        for (SumoArena arena : lstSumoArenas) {
+            if (arena.isInUse()) {
+                if (arena.getSumoMiniGame().isPlayerInGame(player)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
 
 
 

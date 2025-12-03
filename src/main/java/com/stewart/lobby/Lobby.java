@@ -5,12 +5,10 @@ import com.gmail.tracebachi.SockExchange.Messages.ReceivedMessageNotifier;
 import com.gmail.tracebachi.SockExchange.Spigot.SockExchangeApi;
 import com.gmail.tracebachi.SockExchange.SpigotServerInfo;
 import com.google.common.io.ByteArrayDataInput;
-import com.stewart.lobby.commands.FlyCommand;
-import com.stewart.lobby.commands.LobbyCommand;
+import com.stewart.lobby.commands.*;
 import com.stewart.lobby.listeners.ConnectListener;
 import com.stewart.lobby.listeners.LobbyListener;
 import com.stewart.lobby.manager.*;
-import com.stewart.lobby.minigames.SumoMiniGame;
 import com.stewart.lobby.utils.LobbyUtils;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -18,14 +16,12 @@ import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.internal.utils.JDALogger;
 import org.bukkit.Bukkit;
 import org.bukkit.Difficulty;
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.stewart.bb_api.Bb_api;
 import com.planetgallium.kitpvp.Game;
-import org.stewart.bb_api.utils.TempPromos;
+import org.stewart.bb_api.manager.LeaderboardManager;
 
-import javax.security.auth.login.LoginException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -37,6 +33,8 @@ public final class Lobby extends JavaPlugin {
     private LobbyManager lobbyManager;
     private RuleLobbyManager ruleLobbyManager;
     private BoostPadManager boostPadManager;
+    private LeaderboardManager leaderboardManager;
+    private LobbyLeaderBoardManager lobbyLeaderBoardManager;
     private final Bb_api bb_api = (Bb_api) Bukkit.getServer().getPluginManager().getPlugin("bb_api");
     private final Game kitPvP = (Game) Bukkit.getServer().getPluginManager().getPlugin("KitPvP");
     private ReceivedMessageNotifier messageNotifier;
@@ -66,7 +64,6 @@ public final class Lobby extends JavaPlugin {
         if (bb_api == null) {
             System.out.println("---------------------------------------------API IS NULL------------------------");
         } else {
-            System.out.println("---------------------------------------------toggle messagesending------------------------");
             bb_api.getMessageManager().toggleMessageSending(true);
         }
 
@@ -75,6 +72,13 @@ public final class Lobby extends JavaPlugin {
         lobbyManager = new LobbyManager(this);
         ruleLobbyManager = new RuleLobbyManager(this);
         boostPadManager = new BoostPadManager(this);
+
+        leaderboardManager = bb_api.getLeaderboardManager();
+        leaderboardManager.loadAllLeaderboards();
+        leaderboardManager.setMonthly(false);
+        Bukkit.getScheduler().scheduleSyncDelayedTask(this, () -> {
+                    lobbyLeaderBoardManager = new LobbyLeaderBoardManager(this);
+                }, 100);
 
         //   tempPromos = bb_api.startTempPromos(new Location(Bukkit.getWorld("world"), 22.5, 57.5, -22.5));
 
@@ -94,6 +98,9 @@ public final class Lobby extends JavaPlugin {
         // register the pw command class
         getCommand("pw").setExecutor(new LobbyCommand(this));
         getCommand("fly").setExecutor(new FlyCommand(this));
+        getCommand("invis").setExecutor(new InvisCommand(this));
+        getCommand("speed").setExecutor(new SpeedCommand(this));
+        getCommand("jump").setExecutor(new JumpCommand(this));
 
         // this is used to get messages from the game server for the purrpose of updating the sign posts
         sockExchangeApi = SockExchangeApi.instance();
@@ -194,6 +201,10 @@ public final class Lobby extends JavaPlugin {
         return sockExchangeApi;
     }
 
+    public LobbyLeaderBoardManager getLobbyLeaderBoardManager() {
+        return lobbyLeaderBoardManager;
+    }
+
     @Override
     public void onDisable() {
         // Plugin shutdown logic
@@ -238,4 +249,6 @@ public final class Lobby extends JavaPlugin {
             return false;
         }
     }
+
+
 }

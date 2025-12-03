@@ -29,7 +29,7 @@ public class AutoGameSelector {
         for (Game game : main.getGameManager().getGameList()) {
             // ignore creative and smp
           //  System.out.println("getGameMostLikelyToStart searching game " + game.getGameName());
-            if (!game.getGameName().contains("SMP") &&
+            if (!game.getGameName().contains("SMP") && !game.getGameName().contains("Traps") &&
                     !game.getGameName().equalsIgnoreCase("Creative")) {
                 int minPlayers = getGameMinPlayers(game.getGameName());
                 // could be multiple servers for each game

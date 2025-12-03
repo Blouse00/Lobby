@@ -8,6 +8,7 @@ import com.stewart.lobby.instances.Game;
 import com.stewart.lobby.instances.GameServer;
 import com.stewart.lobby.instances.PlayerServerInfo;
 import com.stewart.lobby.minigames.MiniGameManger;
+import com.stewart.lobby.minigames.SumoDifficultyInventory;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.npc.NPCRegistry;
@@ -37,6 +38,7 @@ public class GameManager {
     // to be used for reconnecting them if they disconnect
     private final HashMap<UUID, PlayerServerInfo> mapPlayerServerInfo = new HashMap<>();
     private final String[]  arrAllGameSubtypes = {"assault", "smp", "fia", "icewars"};
+  //  private final String[]  arrAllGameSubtypes = {"assault", "smp", "fia", "icewars", "traps"};
     private final String[]  arrBWSubtypes = {"bedwars_solo", "bedwars_duo", "bedwars_quad"};
     private final String[]  arrFFSubtypes = {"fiend_fight_solo",  "fiend_fight_duo",  "fiend_fight_quad", "fiend_fight_one_team"};
 
@@ -280,7 +282,7 @@ public class GameManager {
 
      public void updateGameServer(String sockName,  String status, int currentPlayers, int maxPlayers, String gameType) {
         Game game = null;
-        //  System.out.printf("update gane server called " + sockName + " " + gameType);
+          System.out.printf("update gane server called " + sockName + " " + gameType);
         if (sockName.startsWith("assault")) {
         //     System.out.println("Updating assault course server object");
             game = getGameByName("Assault_Course");
@@ -301,6 +303,10 @@ public class GameManager {
           //  System.out.println("Updating creative server object");
             game = getGameByName("creative");
         }
+         if (sockName.startsWith("man_trap")) {
+             System.out.println("Updating man_trap server object");
+             game = getGameByName("Traps game");
+         }
         if (sockName.startsWith("monster")) {
            // System.out.println("Updating fiend fight " + gameType + " server object");
             game = getGameByName("fiend_fight_" + gameType);
@@ -361,6 +367,21 @@ public class GameManager {
     }
 
     public void gameChosenFromInventory(Player player, int slot) {
+       if (slot == 12) {
+           // kit pvp
+           player.closeInventory();
+           main.sendPlayerToKitPvP(player);
+           return;
+       }
+
+        if (slot == 14) {
+            //sumo
+            player.closeInventory();
+            SumoDifficultyInventory sumoDifficultyInventory = new SumoDifficultyInventory();
+            player.openInventory(sumoDifficultyInventory.getSumoDifficultyInventory(player));
+            return;
+        }
+
         for (Game game : gameList) {
           //  System.out.println("game name is " + game.getGameName());
             if (game.getInventorySlot() == slot) {
@@ -428,6 +449,9 @@ public class GameManager {
                 break;
             case("smp"):
                 mapGameNameSlot.put("SMP", slot);
+                break;
+            case("traps"):
+                mapGameNameSlot.put("Traps_Game", slot);
                 break;
             case("fia"):
                 mapGameNameSlot.put("Full_Iron_Armour", slot);
