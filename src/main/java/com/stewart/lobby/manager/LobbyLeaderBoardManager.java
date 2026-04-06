@@ -45,6 +45,8 @@ public class LobbyLeaderBoardManager {
         lstRedisKeys.add("a_fi_best_time");
         lstRedisKeys.add("a_fi_wins");
         lstRedisKeys.add("a_fi_wins_games_ratio");
+        lstRedisKeys.add("a_zi_wins");
+        lstRedisKeys.add("a_zi_wins2");
         lstRedisKeys.add("a_bw_wins");
         lstRedisKeys.add("a_bw_beds");
         lstRedisKeys.add("a_bw_wins_games_ratio");
@@ -56,8 +58,7 @@ public class LobbyLeaderBoardManager {
         lstRedisKeys.add("a_mm_wins_ep");
         lstRedisKeys.add("a_mm_premier_scores");
         lstRedisKeys.add("a_mm_diadem_scores");
-        lstRedisKeys.add("a_mt_1_scores");
-        lstRedisKeys.add("a_mt_2_scores");
+
 
 
 
@@ -72,6 +73,8 @@ public class LobbyLeaderBoardManager {
                 int endZ = locationConfig.getInt(redisKey + "." + s + ".c2.z");
                 leaderboards.add(new LobbyLeaderboard(redisKey, startX, startY, startZ, endX, endY, endZ));
             }
+            // todo if is zi wins i need to split it between 2 scoreboards
+
         }
 
 
@@ -96,6 +99,7 @@ public class LobbyLeaderBoardManager {
             }
          //   System.out.println("Updating lobby leaderboard  update seconds = " + updateSeconds + " index = " + index + " of " + leaderboards.size());
           //  UnifiedJedis jedis = new UnifiedJedis(System.getenv().getOrDefault("REDIS_URL", "redis://localhost:6379"));
+          //  System.out.println("updating leaderboard for key ");
             JedisPooled jedis = new JedisPooled("localhost", 6379);
             leaderboards.get(index).updateLeaderboard(jedis);
             jedis.close();

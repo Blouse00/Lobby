@@ -21,9 +21,7 @@ public class SpeedCommand implements CommandExecutor {
     public boolean onCommand(CommandSender commandSender, Command command, String s, String[] args) {
 
         if(commandSender instanceof Player player) {
-            if (player.hasPermission("group.g100") || player.hasPermission("group.g200") ||
-                    player.hasPermission("group.g300") || player.hasPermission("group.g400") ||
-                    player.hasPermission("group.g500") || player.hasPermission("group.g600")) {
+            if (player.hasPermission("rank.speed")) {
                 main.getLobbyManager().playerUsedSpeedCommand(player);
             } else {
                 player.sendMessage(ChatColor.RED + "You do not have permission for that command.");

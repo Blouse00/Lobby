@@ -22,6 +22,16 @@ public class MiniGameManger {
         loadSumoArenas(main);
     }
 
+    public  void playerLeftServer(Player player) {
+        for (SumoArena arena : lstSumoArenas) {
+            if (arena.isInUse()) {
+                if (arena.getSumoMiniGame().isPlayerInGame(player)) {
+                    arena.getSumoMiniGame().playerLeftServer(player);
+                }
+            }
+        }
+    }
+
     private void loadSumoArenas(Lobby main) {
         for (String s : gameConfig.getConfigurationSection( "sumo-arenas").getKeys(false)) {
 

@@ -31,11 +31,17 @@ public class Minigame {
     public void addPlayerToGame(Player player) {
         if (!playersInGame.contains(player)) {
             playersInGame.add(player);
-          //  System.out.println("Player " + player.getName() + " added to the game.");
+            // make sure the player can not fly and is not flying when they join the game
+            player.setAllowFlight(false);
+            player.setFlying(false);
+            // remove any potion effects from the player when they join the game
+            player.getActivePotionEffects().forEach(effect -> player.removePotionEffect(effect.getType()));
         } else {
             System.out.println("Player " + player.getName() + " is already in the game.");
         }
     }
+
+
 
     public void sendMessage(String message) {
         for (Player player : playersInGame) {
@@ -96,7 +102,7 @@ public class Minigame {
     public void start() {
     }
 
-    public void gameEnd(boolean playerWon) {
+    public void gameEnd(int winStatus) {
     }
 
     public void setLobbyInstance(Lobby main) {

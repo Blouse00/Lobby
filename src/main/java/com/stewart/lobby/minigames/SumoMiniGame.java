@@ -13,12 +13,15 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 
 public class SumoMiniGame extends Minigame {
 
+    private int remainingSeconds = 0;
+    private BukkitTask timerTask;
     private String botReach = "3";
     private String botAttackRate = "0.4";
     private String botSpeed = "1";
@@ -62,12 +65,13 @@ public class SumoMiniGame extends Minigame {
             player.getInventory().clear();
             Location spawnLocation = sumoArena.getSpawn1();
             player.teleport(spawnLocation);
+            player.performCommand("uc clear");
             freezePlayers(true);
             // Add bot to the game
             spawnSumoBot(sumoArena.getSpawn2());
 
         } else {
-            gameEnd(false);
+            gameEnd(0);
             throw new IllegalStateException("SumoMiniGame can only start with 1 or 2 players.");
         }
 
@@ -82,7 +86,7 @@ public class SumoMiniGame extends Minigame {
                // System.out.println("y min = " + sumoArena.getyMin() + " player y = " + player.getLocation().getY());
                 if (player.getLocation().getY() < sumoArena.getyMin()) {
                     System.out.println("Player fell off the arena, player loses.");
-                    gameEnd(false);
+                    gameEnd(0);
                     return;
                 }
             }
@@ -91,7 +95,7 @@ public class SumoMiniGame extends Minigame {
         if (sumoNpc != null && sumoNpc.isSpawned()) {
             if (sumoNpc.getEntity().getLocation().getY() < sumoArena.getyMin()) {
                 System.out.println("Bot fell off the arena, player wins.");
-                gameEnd(true);
+                gameEnd(1);
             } else {
                 LivingEntity livingEntity = (LivingEntity) sumoNpc.getEntity();
                 livingEntity.setHealth(20); // heal bot to full health
@@ -100,11 +104,11 @@ public class SumoMiniGame extends Minigame {
         } else {
             // bot is not spawned, player wins
             System.out.println("Bot is not spawned, player wins.");
-            gameEnd(true);
+            gameEnd(1);
         }
         if (playersInGame.size() == 0) {
             System.out.println("No players in game, ending game.");
-            gameEnd(false);
+            gameEnd(0);
         }
     }
 
@@ -121,7 +125,7 @@ public class SumoMiniGame extends Minigame {
          //   Vector v = bot.getVelocity();
             System.out.println("Bot is falling, applying force to make it fall fasterdd.");
 
-            gameEnd(true);
+            gameEnd(1);
 
             // remove the sentinel trait if not already removed
           /*  if (!sentinelRemoved) {
@@ -140,32 +144,99 @@ public class SumoMiniGame extends Minigame {
         }
     }
 
+    public void playerLeftServer(Player player) {
+        if (playersInGame.contains(player)) {
+            playersInGame.remove(player);
+            if (playersInGame.isEmpty()) {
+                // end the game if there are no players left
+                gameEnd(0);
+            }
+            System.out.println("Player " + player.getName() + " removed from the game due to leaving the server.");
+        }
+    }
+
 
 
     @Override
     public void start() {
+
+        // ensure lobby/plugin instance is set
+        if (main == null) {
+            throw new IllegalStateException("Lobby instance not set for SumoMinigame.");
+        }
+
+        // 2 minutes = 120 seconds
+        remainingSeconds = 120;
+
+        // cancel any existing timer
+        cancelTimer();
+
+        // schedule a task that runs every second
+        timerTask = Bukkit.getScheduler().runTaskTimer(main, () -> {
+            // if there are no players, stop the timer
+            if (playersInGame.isEmpty()) {
+                cancelTimer();
+                return;
+            }
+
+            // When timer hits zero -> draw
+            if (remainingSeconds <= 0) {
+                cancelTimer();
+                endDraw();
+                return;
+            }
+
+            // For the last 5 seconds, display big red countdown title
+            if (remainingSeconds <= 5) {
+                // title is the countdown number in big red, no subtitle
+                sendTitleSubtitle(String.valueOf(remainingSeconds), "", "4", "6");
+                // play short countdown sounds (uses existing helper)
+                playSoundAllPlayers(remainingSeconds);
+            }
+
+            remainingSeconds--;
+        }, 20L, 20L); // start after 1s and repeat every 1s
+
 
         freezePlayers(false);
         makeBotHostile();
         clockTickerId = Bukkit.getScheduler().scheduleSyncRepeatingTask(main, () -> clockTick(), 20L, 20L);
     }
 
+    private void cancelTimer() {
+        if (timerTask != null) {
+            timerTask.cancel();
+        }
+        timerTask = null;
+    }
 
+    private void endDraw() {
+        // announce draw
+        sendTitleSubtitle("DRAW!", "", "4", "6");
+        sendMessage("The match has ended in a draw (time ran out).");
+        // optional: play end sounds
+        playGameStartSounds();
+        // call generic gameEnd 2 = draw
+        gameEnd(2);
+    }
 
     @Override
-    public void gameEnd(boolean PlayerWon) {
-        // telepet all players to lobby spawn
+    public void gameEnd(int winStatus) {
+        // winstatus: 0 = player lost, 1 = player won, 2 = draw
+        // teleport all players to lobby spawn
         Location location = ConfigManager.getLobbySpawn();
-
+        cancelTimer();
         for (Player player : playersInGame) {
             if (player != null && player.isOnline()) {
                 player.teleport(location);
                 player.setFireTicks(0);
                 main.getLobbyManager().addLobbyHotbarItems(player);
-                if (PlayerWon) {
+                if (winStatus == 1) {
                     sendTitleSubtitle("You Win!",  "Congratulations!", null, null);
-                } else {
+                } else if (winStatus == 0) {
                     sendTitleSubtitle("You Lost!",  "Better luck next time!", null, null);
+                } else {
+                    sendTitleSubtitle("Draw!",  "Better luck next time!", null, null);
                 }
             }
         }
@@ -186,7 +257,7 @@ public class SumoMiniGame extends Minigame {
             countdown = null;
         }
         playersInGame = new ArrayList<>();
-        System.out.println("Sumo MiniGame ended. Player won: " + PlayerWon);
+        System.out.println("Sumo MiniGame ended. Player won: " + winStatus);
         sumoArena.setInUse(false);
 
     }

@@ -7,26 +7,31 @@ import com.google.common.io.ByteStreams;
 import com.stewart.lobby.Lobby;
 import com.stewart.lobby.instances.PlayerServerInfo;
 import com.stewart.lobby.utils.LobbyUtils;
-import com.stewart.lobby.utils.NewPlayerGameInventory;
 import net.citizensnpcs.api.CitizensAPI;
-import net.citizensnpcs.trait.SkinTrait;
 import net.minecraft.server.v1_8_R3.EnumParticle;
 import net.minecraft.server.v1_8_R3.PacketPlayOutWorldParticles;
 import org.bukkit.*;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.material.Chest;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
+import redis.clients.jedis.JedisPooled;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 
 import static org.bukkit.Bukkit.getScheduler;
 
@@ -36,6 +41,8 @@ public class LobbyManager {
     private final Lobby main;
     private final int feetBlockY;
     private int gameSeconds;
+    // track the last date we ran the daily wipe at 3am so it only runs once per day
+    private LocalDate lastWipeDate = null;
     // keeps a list of all people currently spawn protected and the game time it started
     private final HashMap<UUID, Integer> playerSpawnProtect = new HashMap<>();
     private final HashMap<UUID, Integer> playerPortalling = new HashMap<>();
@@ -45,11 +52,7 @@ public class LobbyManager {
     private  int particleIterator = 19; // Task will run 10 times.
     private BukkitTask particleTask = null;
     private final List<UUID> lstNoPvp;
-    private final Location noPvpTopCorner;
-    private final Location noPvpBottomCorner;
-
-    private final Location noPvpTopCorner2;
-    private final Location noPvpBottomCorner2;
+    private int gamesCompletedForKey = 10;
     private int[][] pvpCoords;
     //-55 40 -10
 
@@ -60,11 +63,6 @@ public class LobbyManager {
         feetBlockY = main.getConfig().getInt("feet-block-y");
         startClock();
         lstNoPvp = new ArrayList<>();
-        noPvpTopCorner = new Location(Bukkit.getWorld("world"), 24, 58, -10);
-        noPvpBottomCorner = new Location(Bukkit.getWorld("world"), 1, 48, -33 );
-
-        noPvpTopCorner2 = new Location(Bukkit.getWorld("world"), -11, 50, 10);
-        noPvpBottomCorner2 = new Location(Bukkit.getWorld("world"), -55, 40, -10 );
         Bukkit.getScheduler().scheduleSyncDelayedTask(main, this::spawnNonGameNPCS, 200L);
         getPVPCoords();
     }
@@ -92,8 +90,13 @@ public class LobbyManager {
     }
 
     private void spawnNonGameNPCS() {
-        spawnVoteMaster();
+        if (ConfigManager.isVotesEnabled()) {
+            spawnVoteMaster();
+        }
         spawnDiscordNPC();
+        if (ConfigManager.isShopEnabled()) {
+            spawnShopNPC();
+        }
         spawnSumoNPC();
         spawnKitPVPNPC();
     }
@@ -103,42 +106,27 @@ public class LobbyManager {
         String signature = ConfigManager.getVotesSkinSignature();
         String nameColour = ChatColor.GOLD + "";
         // get the locations and spawn the NPCs for fiend fight
-        for (String s : main.getConfig().getConfigurationSection("votes-npc-locations.").getKeys(false)) {
+        for (String s : main.getConfig().getConfigurationSection("votes.spawn.").getKeys(false)) {
             Location location = new Location(Bukkit.getWorld("world"),
-                    main.getConfig().getDouble("votes-npc-locations." + s + ".x"),
-                    main.getConfig().getDouble("votes-npc-locations." + s + ".y"),
-                    main.getConfig().getDouble("votes-npc-locations." + s + ".z"),
-                    (float) main.getConfig().getDouble("votes-npc-locations." + s + ".yaw"),
-                    (float) main.getConfig().getDouble("votes-npc-locations." + s + ".pitch"));
+                    main.getConfig().getDouble("votes.spawn." + s + ".x"),
+                    main.getConfig().getDouble("votes.spawn." + s + ".y"),
+                    main.getConfig().getDouble("votes.spawn." + s + ".z"),
+                    (float) main.getConfig().getDouble("votes.spawn." + s + ".yaw"),
+                    (float) main.getConfig().getDouble("votes.spawn." + s + ".pitch"));
 
             main.getGameManager().spawnNPC(location, texture, signature, nameColour, "Votemaster");
         }
 
-
-        /*Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
-            @Override
-            public void run() {
-                String npcName = ChatColor.GOLD + "Votemaster";
-
-                net.citizensnpcs.api.npc.NPC npc = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
-                SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
-                skin.setSkinPersistent("vote", ConfigManager.getVotesSkinSignature(), ConfigManager.getVotesSkinTexture());
-                npc.spawn(new Location(Bukkit.getWorld("world"), 9.5, 51, -10.5, 180, -17));
-
-                net.citizensnpcs.api.npc.NPC npc2 = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
-                SkinTrait skin2 = npc2.getOrAddTrait(SkinTrait.class);
-                skin2.setSkinPersistent("vote", ConfigManager.getVotesSkinSignature(), ConfigManager.getVotesSkinTexture());
-                npc2.spawn(new Location(Bukkit.getWorld("world"), -35.5, 43, 6.5, 180, -10));
-
-                System.out.println("spawning npc for votes");
-            }
-        }, 200L);*/
     }
 
     private void spawnDiscordNPC() {
+
+
         String texture = ConfigManager.getDiscordSkinTexture();
         String signature = ConfigManager.getDiscordSkinSignature();
         String nameColour = ChatColor.BLUE + "";
+
+
         // get the locations and spawn the NPCs for fiend fight
         for (String s : main.getConfig().getConfigurationSection("discord.spawn.").getKeys(false)) {
             Location location = new Location(Bukkit.getWorld("world"),
@@ -150,24 +138,35 @@ public class LobbyManager {
 
             main.getGameManager().spawnNPC(location, texture, signature, nameColour, "Discord");
         }
-        /*Bukkit.getScheduler().scheduleSyncDelayedTask(main, new Runnable() {
-            @Override
-            public void run() {
-                String npcName = ChatColor.BLUE + "Discord";
 
-                net.citizensnpcs.api.npc.NPC npc = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
-                SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
-                skin.setSkinPersistent("discord", ConfigManager.getDiscordSkinSignature(), ConfigManager.getDiscordSkinTexture());
-                npc.spawn(new Location(Bukkit.getWorld("world"), 1.5, 51, -18.5, -90, -10));
 
-                net.citizensnpcs.api.npc.NPC npc2 = CitizensAPI.getNPCRegistry().createNPC(EntityType.PLAYER, npcName);
-                SkinTrait skin2 = npc2.getOrAddTrait(SkinTrait.class);
-                skin2.setSkinPersistent("discord", ConfigManager.getDiscordSkinSignature(), ConfigManager.getDiscordSkinTexture());
-                npc2.spawn(new Location(Bukkit.getWorld("world"), -35.5, 43, -5.5, 0, 10));
+    }
 
-                System.out.println("spawning npc for discord");
-            }
-        }, 200L);*/
+    private void spawnShopNPC() {
+
+
+        String texture = ConfigManager.getShopSkinTexture();
+        String signature = ConfigManager.getShopSkinSignature();
+        String nameColour = ChatColor.YELLOW + "";
+
+
+        // get the locations and spawn the NPCs for fiend fight
+        for (String s : main.getConfig().getConfigurationSection("shop.spawn.").getKeys(false)) {
+            Location location = new Location(Bukkit.getWorld("world"),
+                    main.getConfig().getDouble("shop.spawn." + s + ".x"),
+                    main.getConfig().getDouble("shop.spawn." + s + ".y"),
+                    main.getConfig().getDouble("shop.spawn." + s + ".z"),
+                    (float) main.getConfig().getDouble("shop.spawn." + s + ".yaw"),
+                    (float) main.getConfig().getDouble("shop.spawn." + s + ".pitch"));
+
+
+            String npcName = nameColour + "Visit our Shop!";
+            /*net.citizensnpcs.api.npc.NPC npc =CitizensAPI.getNPCRegistry().createNPC(EntityType.VILLAGER, npcName);
+            npc.spawn(location);*/
+
+            main.getGameManager().spawnNPC(location, texture, signature, nameColour, npcName);
+        }
+
 
     }
 
@@ -214,6 +213,9 @@ public class LobbyManager {
 
     private void doClockTick() {
 
+
+
+
         if (!playerSpawnProtect.isEmpty()) {
             // remove any players from spawn protect list that may have left the game
             playerSpawnProtect.entrySet().removeIf(e->  Bukkit.getPlayer(e.getKey()) == null );
@@ -226,6 +228,9 @@ public class LobbyManager {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (player != null) {
                 player.getPlayer().setFoodLevel(20);
+                if (!main.isPlayerInKitPvP(player) && !main.getGameManager().getMiniGameManger().isPlayerInSumoGame(player)) {
+                    removeBadItems(player);
+                }
             }
         }
 
@@ -250,6 +255,172 @@ public class LobbyManager {
         // every minute remove players from the sent to server list who have been there 60 minutes or more
         if (gameSeconds%60 == 0) {
             main.getGameManager().removePlayerServerInfoOverMinutes(60);
+        }
+        if (gameSeconds%10 == 0) {
+            updateCrateKeyChest();
+        }
+        doDailyRedisWipe();
+
+    }
+
+    private void doDailyRedisWipe() {
+        // Once per day at 03:00 (server local time) run wipeGamesPlayedForCratesFromRedis
+        try {
+            LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            LocalTime now = LocalTime.now(ZoneId.systemDefault());
+            LocalTime target = LocalTime.of(3, 0);
+            LocalTime windowEnd = target.plusMinutes(10); // run only between 03:00 and 03:09 inclusive
+             // trigger once during the 03:00 minute (first tick in that minute) or if we missed the 03:00 minute
+            // (for example a server restart that came up after 03:00) but only allow attempts within the first 10 minutes
+            // after 03:00 to avoid wiping on random restarts later in the day.
+            if (( !now.isBefore(target) && now.isBefore(windowEnd) ) && (lastWipeDate == null || !lastWipeDate.equals(today))) {
+                 // Use Redis as a persistent guard so restarts or multiple servers don't repeatedly flush DB.
+                 JedisPooled jedis = null;
+                 try {
+                    // use a different Redis DB index for the guard key so flushing DB 1 doesn't delete our marker
+                    jedis = new JedisPooled("redis://localhost:6379/2");
+                    String key = "bashy:last_daily_wipe";
+                    // setnx returns 1 if the key was set (i.e., we are the first to set it today)
+                    Long set = jedis.setnx(key, today.toString());
+                    boolean flushSucceeded = false;
+                    if (set == 1L) {
+                        // ensure the key expires in 25 hours so it won't persist indefinitely
+                        jedis.expire(key, 25 * 60 * 60);
+                        // flush the DB (this is the intended daily wipe)
+                        // perform the flush on DB 1 specifically to match previous behavior
+                        JedisPooled flushJedis = null;
+                        try {
+                            flushJedis = new JedisPooled("redis://localhost:6379/1");
+                            flushJedis.flushDB();
+                            flushSucceeded = true;
+                            System.out.println("Daily wipeGamesPlayedForCratesFromRedis executed at 03:00 (via Redis guard)");
+                        } catch (Exception ex2) {
+                            System.out.println("Error flushing DB 1 during daily wipe: " + ex2.getMessage());
+                            // remove the guard key so another instance (or a later retry) can attempt the wipe
+                            try {
+                                jedis.del(key);
+                            } catch (Exception delEx) {
+                                System.out.println("Failed to delete guard key after flush failure: " + delEx.getMessage());
+                            }
+                        } finally {
+                            if (flushJedis != null) try { flushJedis.close(); } catch (Exception ignored) {}
+                        }
+                    } else {
+                        // someone else already performed the wipe (or the key exists)
+                        System.out.println("Daily wipe already performed by another instance or earlier in this minute.");
+                    }
+                    // Mark lastWipeDate only if the flush succeeded (we did the wipe) or the key already existed (someone else did it)
+                    if (set != null && (set == 0L || flushSucceeded)) {
+                        lastWipeDate = today;
+                    }
+                } catch (Exception ex) {
+                    System.out.println("Error performing Redis-backed daily wipe: " + ex.getMessage());
+                } finally {
+                    if (jedis != null) {
+                        try { jedis.close(); } catch (Exception ignored) {}
+                    }
+                }
+
+            }
+        } catch (Exception e) {
+            System.out.println("Error checking/performing daily wipe: " + e.getMessage());
+        }
+    }
+
+    private void updateCrateKeyChest() {
+        JedisPooled jedisPlayerKeys =  new JedisPooled("redis://localhost:6379/2");
+        JedisPooled jedisGamesPlayed =  new JedisPooled("redis://localhost:6379/1");
+        String gamesPlayedKey = "daily_games_completed";
+        String playerKeysKey = "bbcratekeys";
+
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            // dont do this if they are in a minigame as i dont want to add the chest to their inventory.
+            if (checkPlayerInMiniGame(player)) continue;
+            // get how many games played this player has from jedisGamesPlayed
+            Double currentScore = jedisGamesPlayed.zscore(gamesPlayedKey, player.getName());
+            if (currentScore== null) {
+                currentScore = 0d;
+            };
+            Double currentKeys = jedisPlayerKeys.zscore(playerKeysKey, player.getName());
+            // if the current score is > or equal to 10 they get a key
+            if (currentScore >= gamesCompletedForKey) {
+                // give them a key by adding to their score in jedisPlayerKeys for the key
+                if (currentKeys == null) {
+                    jedisPlayerKeys.zadd(playerKeysKey, 1d, player.getName());//ZADD
+                    currentKeys = 1d;
+                } else {
+                    jedisPlayerKeys.zincrby(playerKeysKey, 1, player.getName());//ZADD
+                    currentKeys += 1;
+                }
+                // deduct currentscore by 10 in jedisGamesPlayed so they have to complete another 10 games for the next key
+                currentScore = currentScore - gamesCompletedForKey;
+                jedisGamesPlayed.zadd(gamesPlayedKey, currentScore, player.getName());//ZADD
+              //  double newGamesPlayedFromRedis = jedisPlayerKeys.zscore(playerKeysKey, player.getName());
+             //   System.out.println("Player " + player.getName() + " has been awarded a crate key for completing " + gamesCompletedForKey + " games. They now have " + newGamesPlayedFromRedis + " games played today.");
+            }
+         //   System.out.println("Player " + player.getName() + " has " + (currentKeys == null ? 0 : currentKeys.intValue()) + " crate keys and has completed " + currentScore.intValue() + " games today.");
+            setHotbarCrateChest(player, currentKeys == null ? 0 : currentKeys.intValue());
+
+        }
+
+        jedisPlayerKeys.close();
+        jedisGamesPlayed.close();
+
+    }
+
+    public void playerClickedHotbarCrate(Player player) {
+        // check if the player has any keys
+        JedisPooled jedisPlayerKeys =  new JedisPooled("redis://localhost:6379/2");
+        String playerKeysKey = "bbcratekeys";
+        Double currentKeys = jedisPlayerKeys.zscore(playerKeysKey, player.getName());
+        if (currentKeys != null && currentKeys >= 1) {
+            // open a crate
+            // do a command as the console to open a crate
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "uc reward 1 " + player.getName());
+            // reduce the number of keys by 1
+            jedisPlayerKeys.zincrby(playerKeysKey, -1, player.getName());//
+            currentKeys = currentKeys - 1;
+            setHotbarCrateChest(player, currentKeys.intValue());
+        } else {
+            JedisPooled jedisGamesPlayed =  new JedisPooled("redis://localhost:6379/1");
+            String gamesPlayedKey = "daily_games_completed";
+            Double currentScore = jedisGamesPlayed.zscore(gamesPlayedKey, player.getName());
+            int gamesStillToPlay = gamesCompletedForKey - (currentScore == null ? 0 : currentScore.intValue());
+            player.sendMessage(ChatColor.RED + "You have no crate keys to open!");
+            // tell them how to get more keys, either play gamesCompletedForKey games in a day or vote on all sites
+            player.sendMessage(ChatColor.YELLOW + "You can earn keys by completing " + gamesStillToPlay + " more games today");
+            player.sendMessage(ChatColor.YELLOW + "or by voting for the server on all of our voting sites!");
+            jedisGamesPlayed.close();
+        }
+        jedisPlayerKeys.close();
+    }
+
+    private void setHotbarCrateChest(Player player, int currentKeys) {
+        ItemStack chest;
+        if (currentKeys == 0) {
+            chest = new ItemStack(Material.CHEST);
+            ItemMeta chestMeta = chest.getItemMeta();
+            chestMeta.setDisplayName(ChatColor.GOLD + "You have no crate keys");
+            chest.setItemMeta(chestMeta);
+        } else {
+            chest = new ItemStack(Material.ENDER_CHEST);
+            ItemMeta chestMeta = chest.getItemMeta();
+            chestMeta.setDisplayName(ChatColor.GOLD + "You have " + currentKeys + " crate key(s)");
+            chest.setItemMeta(chestMeta);
+        }
+        player.getInventory().setItem(2,chest);
+    }
+
+    private void removeBadItems(Player player) {
+        // loop through the players inventory and remove any items that are not allowed in the lobby
+        // tnt
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null) {
+                if (item.getType() == Material.TNT) {
+                    player.getInventory().remove(item);
+                }
+            }
         }
     }
 
@@ -327,14 +498,6 @@ public class LobbyManager {
         miniGameItem.setItemMeta(miniGameItemItemMeta);
         player.getInventory().setItem(3,miniGameItem);
 
-/*        if (main.getKitPvP() != null ) {
-            ItemStack kitPvpItem = new ItemStack(Material.BLAZE_ROD);
-            ItemMeta kitPvpItemMeta = kitPvpItem.getItemMeta();
-            kitPvpItemMeta.setDisplayName(ChatColor.RED + "Kit PvP");
-            kitPvpItem.setItemMeta(kitPvpItemMeta);
-            player.getInventory().setItem(3, kitPvpItem);
-        }*/
-
         // give them netherStar to open game join inventory
         ItemStack netherStar = new ItemStack(Material.COMPASS);
         ItemMeta netherStarMeta = netherStar.getItemMeta();
@@ -384,14 +547,12 @@ public class LobbyManager {
             System.out.println("Lobby PlayerReJoinGameServer server wanted player back " + player.getName());
             PlayerServerInfo playerServerInfo = main.getGameManager().getPlayerServerInfo(uuid);
             String sockName = playerServerInfo.getSockName();
-            if (playerServerInfo != null) {
-                if (isServerOnline(playerServerInfo.getSockName())) {
-                    ByteArrayDataOutput out = ByteStreams.newDataOutput();
-                    out.writeUTF("Connect");
-                    out.writeUTF(sockName);
-                    getScheduler().scheduleSyncDelayedTask(main, () -> player.sendPluginMessage(main, "BungeeCord", out.toByteArray()), 10);
-                    System.out.println("Lobby PlayerReJoinGameServer server wanted player back " + player.getName() + " sent to " + sockName);
-                }
+            if (isServerOnline(playerServerInfo.getSockName())) {
+                ByteArrayDataOutput out = ByteStreams.newDataOutput();
+                out.writeUTF("Connect");
+                out.writeUTF(sockName);
+                getScheduler().scheduleSyncDelayedTask(main, () -> player.sendPluginMessage(main, "BungeeCord", out.toByteArray()), 10);
+                System.out.println("Lobby PlayerReJoinGameServer server wanted player back " + player.getName() + " sent to " + sockName);
             }
         }
     }
@@ -487,19 +648,7 @@ public class LobbyManager {
         for (Player player : Bukkit.getOnlinePlayers()) {
 
             UUID uuid = player.getUniqueId();
-          //  System.out.println("Checking " + player.getName() + " is in list = " + (lstNoPvp.contains(uuid) ? "true" : "false"));
 
-          /*  if (isInRegion(player.getLocation(), noPvpBottomCorner, noPvpTopCorner) || isInRegion(player.getLocation(), noPvpBottomCorner2, noPvpTopCorner2)) {
-                if (!lstNoPvp.contains(uuid)){
-                    lstNoPvp.add(uuid);
-                    player.sendMessage( ChatColor.GREEN + "Leaving PVP area");
-                }
-            } else {
-                if (lstNoPvp.contains(uuid)) {
-                    lstNoPvp.remove(uuid);
-                    player.sendMessage(ChatColor.RED + "Entering PVP area");
-                }
-            }*/
 
             if (isOutsideKitPvpArea(player.getLocation()) && main.isPlayerInKitPvP(player)) {
                 LobbyUtils.leaveKitPVP(player, main);
@@ -556,26 +705,7 @@ public class LobbyManager {
         return false;
     }
 
-    public static boolean isInRegion(Location playerLocation, Location lowestPos, Location highestPos){
-
-        double x = playerLocation.getX();
-        double y = playerLocation.getY();
-        double z = playerLocation.getZ();
-
-        double lowx = lowestPos.getX();
-        double lowy = lowestPos.getY();
-        double lowz = lowestPos.getZ();
-
-        double highx = highestPos.getX();
-        double highy = highestPos.getY();
-        double highz = highestPos.getZ();
-
-        return (x <= highx && x >= lowx) && (y <= highy && y >= lowy) && (z <= highz && z >= lowz);
-    }
-
     public boolean isNoPvp(UUID uuid) {
-       // System.out.println("Checking " + uuid + " is in no pvp list = " + (lstNoPvp.contains(uuid) ? "true" : "false"));
-
         return lstNoPvp.contains(uuid);
     }
 
@@ -587,6 +717,10 @@ public class LobbyManager {
     }
 
     public void playerUsedSpeedCommand(Player player) {
+        if (checkPlayerInMiniGame(player)) {
+            player.sendMessage(ChatColor.RED + "You cannot use this command while in a mini-game!");
+            return;
+        }
         if (playerCooldownSpeed.containsKey(player.getUniqueId())) {
             int secondsLeft = (playerCooldownSpeed.get(player.getUniqueId()) + 30) - gameSeconds;
             player.sendMessage(ChatColor.RED + "You must wait " + secondsLeft + " seconds before using Speed again.");
@@ -598,6 +732,10 @@ public class LobbyManager {
     }
 
     public void playerUsedInvisCommand(Player player) {
+        if (checkPlayerInMiniGame(player)) {
+            player.sendMessage(ChatColor.RED + "You cannot use this command while in a mini-game!");
+            return;
+        }
         if( playerCooldownInvis.containsKey(player.getUniqueId())) {
             int secondsLeft = (playerCooldownInvis.get(player.getUniqueId()) + 30) - gameSeconds;
             player.sendMessage(ChatColor.RED + "You must wait " + secondsLeft + " seconds before using Invisibility again.");
@@ -609,6 +747,10 @@ public class LobbyManager {
     }
 
     public void playerUsedJumpCommand(Player player) {
+        if (checkPlayerInMiniGame(player)) {
+            player.sendMessage(ChatColor.RED + "You cannot use this command while in a mini-game!");
+            return;
+        }
         if( playerCooldownJump.containsKey(player.getUniqueId())) {
             int secondsLeft = (playerCooldownJump.get(player.getUniqueId()) + 30) - gameSeconds;
             player.sendMessage(ChatColor.RED + "You must wait " + secondsLeft + " seconds before using Jump again.");
@@ -619,4 +761,9 @@ public class LobbyManager {
         }
     }
 
+    private boolean checkPlayerInMiniGame(Player player) {
+        return main.getGameManager().getMiniGameManger().isPlayerInSumoGame(player) || main.isPlayerInKitPvP(player);
+    }
+
 }
+

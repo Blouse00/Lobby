@@ -36,7 +36,7 @@ public class LobbyLeaderboard {
     }
 
     public void updateLeaderboard(UnifiedJedis jedis) {
-      //  System.out.println("Updating lobby leaderboard for key " + redisKey);
+       // System.out.println("Updating lobby leaderboard for key " + redisKey);
         boolean samex = startX == endX;
         boolean reverse = false;
         if (samex) {
@@ -49,6 +49,7 @@ public class LobbyLeaderboard {
             }
         }
 
+        int indexOffest = 0;
         List<Tuple> elements;
         if (redisKey.contains("_time")) {
             // times not backwards
@@ -57,31 +58,35 @@ public class LobbyLeaderboard {
             elements = jedis.zrevrangeWithScores(redisKey, 0, (25 - 1));
         }
         // traps game mt leaderboards split into 2 parts with 15 sections each
-        if (redisKey.equals("a_mt_1_scores")) {
-            elements = jedis.zrevrangeWithScores("a_mt_scores", 0, 14);
-            System.out.println("Updating lobby leaderboard for key a_mt_1_scores got " + elements.size() + " elements");
-        } else if (redisKey.equals("a_mt_2_scores")) {
-            elements = jedis.zrevrangeWithScores("a_mt_scores", 15, 29);
-            System.out.println("Updating lobby leaderboard for key a_mt_2_scores got " + elements.size() + " elements");
+        if (redisKey.equals("a_zi_wins")) {
+            elements = jedis.zrevrangeWithScores("a_zi_wins", 0, 14);
+
+        }
+        if (redisKey.equals("a_zi_wins2")) {
+            elements = jedis.zrevrangeWithScores("a_zi_wins", 15, 29);
+            indexOffest = 15;
         }
 
+        updateBoard(samex, reverse, elements, indexOffest);
 
+    }
 
-       // System.out.println("samex=" + samex + " reverse=" + reverse + " x = " + startX + " to " + endX + " z = " + startZ + " to " + endZ + " y = " + startY + " to " + endY);
+    private void updateBoard(boolean samex, boolean reverse, List<Tuple> elements, int indexOffset) {
+        // System.out.println("samex=" + samex + " reverse=" + reverse + " x = " + startX + " to " + endX + " z = " + startZ + " to " + endZ + " y = " + startY + " to " + endY);
         int i = 0;
         for (int y = startY; y >= endY; y--) {
-          //  System.out.println("looping  y=" + y + " from " + startY + " to " + endY);
+            //  System.out.println("looping  y=" + y + " from " + startY + " to " + endY);
             if (samex) {
                 if (!reverse) {
                     for (int z = startZ; z <= endZ; z++) {
                         Location location = new Location(Bukkit.getWorld("world"), startX, y, z);
                         Block block = location.getBlock();
                         if (i >= elements.size()) {
-                            updateSign(null, block, i);
+                            updateSign(null, block, i + indexOffset);
                             i++;
                             continue;
                         }
-                        updateSign(elements.get(i), block, i);
+                        updateSign(elements.get(i), block, i + indexOffset);
                         i ++;
                     }
                 } else {
@@ -89,11 +94,11 @@ public class LobbyLeaderboard {
                         Location location = new Location(Bukkit.getWorld("world"), startX, y, z);
                         Block block = location.getBlock();
                         if (i >= elements.size()) {
-                            updateSign(null, block, i);
+                            updateSign(null, block, i + indexOffset);
                             i++;
                             continue;
                         }
-                        updateSign(elements.get(i), block, i);
+                        updateSign(elements.get(i), block, i + indexOffset);
                         i ++;
                     }
                 }
@@ -103,11 +108,11 @@ public class LobbyLeaderboard {
                         Location location = new Location(Bukkit.getWorld("world"), x, y, startZ);
                         Block block = location.getBlock();
                         if (i >= elements.size()) {
-                            updateSign(null, block, i);
+                            updateSign(null, block, i + indexOffset);
                             i++;
                             continue;
                         }
-                        updateSign(elements.get(i), block, i);
+                        updateSign(elements.get(i), block, i + indexOffset);
                         i ++;
                     }
                 } else {
@@ -115,17 +120,18 @@ public class LobbyLeaderboard {
                         Location location = new Location(Bukkit.getWorld("world"), x, y, startZ);
                         Block block = location.getBlock();
                         if (i >= elements.size()) {
-                            updateSign(null, block, i);
+                            updateSign(null, block, i + indexOffset);
                             i++;
                             continue;
                         }
-                        updateSign(elements.get(i), block, i);
+                        updateSign(elements.get(i), block, i + indexOffset);
                         i ++;
                     }
                 }
             }
         }
     }
+
 
   /*  $4 - Dark Red
     $c - Red
@@ -161,16 +167,16 @@ public class LobbyLeaderboard {
               //  System.out.println("No element for index " + index);
                // ChatColor.translateAlternateColorCodes('$',  "$c" +  String.valueOf(index + 1 ));
                // sign.setLine(0,  String.valueOf(index + 1 ));;
-                sign.setLine(0,  "");
+                sign.setLine(0, "");
                 sign.setLine(2, "");
                 sign.setLine(3, "");
                 sign.update(); // Example action
             } else {
-              //  System.out.println("Updating sign for element " + element.getElement() + " with score " + element.getScore());
+                //System.out.println("Updating sign for element " + element.getElement() + " with score " + element.getScore());
                 sign.setLine(0,  ChatColor.translateAlternateColorCodes('$',  "$1" +  ordinal(index + 1)));
-                sign.setLine(1,    ChatColor.translateAlternateColorCodes('$',  "$c" + element.getElement()));
-                sign.setLine(2, "");
-                sign.setLine(3, ChatColor.translateAlternateColorCodes('$',  "$2" + getFormattedScore(element.getScore(), redisKey)));
+                sign.setLine(1,  ChatColor.translateAlternateColorCodes('$',  "$4$l" + element.getElement()));
+                sign.setLine(2, " ");
+                sign.setLine(3, ChatColor.translateAlternateColorCodes('$',  "$1$l" + getFormattedScore(element.getScore(), redisKey)));
                 sign.update(); // Example action
             }
         } else  {
@@ -211,9 +217,15 @@ public class LobbyLeaderboard {
         }
 
         if (redisKey.contains("wins_games_ratio")) {
+            // the value passed is eg 1245 for 12.45%
+            // peter wants it to be an integer witn no decimal
+            // so i need to turn it into a double
+            double percentage = dScore / 100.0;
+            DecimalFormat format = new DecimalFormat("0");
+            return format.format(percentage) + "%";
             // need to divide the score by 100 into a double
-            DecimalFormat format = new DecimalFormat("0.##");
-            return  format.format(dScore/100f) + "%";
+           // DecimalFormat format = new DecimalFormat("0.##");
+          //  return  format.format(dScore/100f) + "%";
         }
 
         DecimalFormat format = new DecimalFormat("0.#");

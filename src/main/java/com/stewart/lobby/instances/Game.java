@@ -17,6 +17,7 @@ import net.citizensnpcs.trait.SkinTrait;
 import org.bukkit.*;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.stewart.bb_api.instance.CustomPlayer;
 
 import java.net.InetSocketAddress;
@@ -42,6 +43,7 @@ public class Game {
     private final String nameColour;*/
     private final Material material;
     private final int inventorySlot;
+    private List<String> lstSockNames = new ArrayList<>();
 
  //   private org.bukkit.inventory.ItemStack gameItem;
 
@@ -51,6 +53,7 @@ public class Game {
     public Game(Lobby lobby,  String name,  Material material, int inventorySlot) {
 /*    public Game(Lobby lobby,  String name, List<Location> npcSpawnLocation, String texture, String signature,
                 String nameColour, Material material, int inventorySlot) {*/
+        System.out.println("Creating game object for " + name);
         this.isBlocked = false;
       //  this.gameItem = gameItem;
         this.name = name;
@@ -61,9 +64,6 @@ public class Game {
         this.nameColour = nameColour;*/
         this.material = material;
         this.inventorySlot = inventorySlot;
-
-        // after 1 minute check all game servers are online then every 20 seconds after that
-        // TODO change times from 10 seconds for testing to 1m (1200) & 30sec (600)
 
         Bukkit.getScheduler().scheduleSyncRepeatingTask(main, () -> checkGameServersOnline(), 600, 600);
     }
@@ -107,6 +107,12 @@ public class Game {
             System.out.println("Removed offline server " + sockName + " from the game server list (size)" + serverList.size());
         }
 
+    }
+
+    public void addSockName(String sockName) {
+        if (!lstSockNames.contains(sockName)) {
+            lstSockNames.add(sockName);
+        }
     }
 
 
@@ -194,8 +200,9 @@ public class Game {
                 // send the player there
                 main.getGameManager().removePlayerFromQueues(player.getUniqueId(), null);
                 if (player != null) {
-                    if (this.name.toLowerCase().contains("fiend") || this.name.toLowerCase().contains("bedwars")) {
-                     //   System.out.println("Checking if player is in a party");
+                    if ((this.name.toLowerCase().contains("fiend") && !ConfigManager.getIsFiendFightCombinedArenas()) ||
+                            (this.name.toLowerCase().contains("bedwars") && !ConfigManager.getIsBedwarsCombinedArenas())) {
+                        System.out.println("FF BW Checking if player is in a party");
                         PAFPlayer pafPlayer = PAFPlayerManager.getInstance().getPlayer(player.getUniqueId());
                         PlayerParty party = PartyManager.getInstance().getParty(pafPlayer);
                         String commaSeparatedPlayerNames = player.getName();
@@ -311,63 +318,6 @@ public class Game {
         return sb.toString();
     }
 
-   /* private void JoinBedwarsServer(Player player) {
-        PAFPlayer pafPlayer = PAFPlayerManager.getInstance().getPlayer(player.getUniqueId());
-        PlayerParty party = PartyManager.getInstance().getParty(pafPlayer);
-        // if its a party I need to know how many players there are, default this to 1 for non-party player
-        int numPlayersToJoin = 1;
-        if (party != null) {
-            System.out.println("player is in a party " +  player.getDisplayName());
-            for (PAFPlayer p : party.getPlayers()) {
-                System.out.println("Player in party is " + p.getName());
-            }
-            System.out.println("Party leader is " + party.getLeader().getName());
-
-
-            // need to get the number of players in the party
-            // + 1 as its normal players + leader. Calling size() on getAllPlayers has weird effects (adds
-            // duplicate players to the party.
-            numPlayersToJoin = party.getPlayers().size() + 1;
-
-        }
-
-        int teamSize = 1;
-       // String msg = "";
-        // get the type of bedwars game the player wishes to join.
-        if (this.getGameName().equals("Bedwars_solo")) {
-           // msg = "Attempting to join Bedwars solos!";
-        }
-        if (this.getGameName().equals("Bedwars_duos")) {
-           // msg = "Attempting to join Bedwars duos!";
-            teamSize = 2;
-        }
-        if (this.getGameName().equals("Bedwars_quads")) {
-          //  msg = "Attempting to join Bedwars quads!";
-            teamSize = 4;
-        }
-
-
-       // player.sendMessage(msg);
-        GameManager manager = main.getGameManager();
-        String serverSockName = manager.getBedwarsServerRecruiting(teamSize, numPlayersToJoin);
-        if (serverSockName == null) {
-            System.out.println("No servers set up for " + this.getGameName());
-            // see if there are idle servers (teamSize = 0) we can set for our use.
-            serverSockName = manager.getSocknameOfIdleBedwarsServer();
-            if (serverSockName != "") {
-                manager.setBedwarsServerToTeamSize(serverSockName, teamSize);
-                // do not give the you have been added to the queue message as they should get there pretty quick
-
-                addPlayerToQueue(player, false);
-            } else {
-                addPlayerToQueue(player, true);
-            }
-
-        } else {
-            // send the player to the server
-            SendPlayerToServer(player, serverSockName);
-        }
-    }*/
 
     private void SendPlayerToServer(Player player, String sockName) {
         try {
@@ -384,19 +334,34 @@ public class Game {
             }
             player.sendPluginMessage(main, "BungeeCord", out.toByteArray());
             if (sockName.toLowerCase().contains("monster") ||sockName.toLowerCase().contains("assault")
-                    || sockName.toLowerCase().contains("bedwars") || sockName.toLowerCase().contains("fulliron")) {
+                    || sockName.toLowerCase().contains("bedwars") || sockName.toLowerCase().contains("fulliron")
+                    || sockName.toLowerCase().contains("zombie")) {
                 main.getGameManager().addPlayerServerInfo(player.getUniqueId(), sockName);
             }
-            LobbyUtils.sendGameJoinMessage(player.getName(), this.name);
+            // after a delay of 2 seconds, if the player is not still thi server, send a message to the lobby and discord saying they have joined the game.
+            // 1. Capture the info BEFORE the delay
+            UUID playerUUID = player.getUniqueId();
+            String cachedName = player.getName();
+            String gameName = this.name;
 
-            main.sendMessageToSMPPlayers(player.getName(), this.name);
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    // 2. Check if they are still in the lobby server
+                    Player currentPlayer = Bukkit.getPlayer(playerUUID);
+                    if (currentPlayer == null) {
+                        // Player is GONE (either offline or moved to another Bungee server)
+                        LobbyUtils.sendGameJoinMessage(cachedName, gameName);
+                        main.sendMessageToSMPPlayers(player.getName(), gameName);
+                    }
+                }
+            }.runTaskLater(main, 40L);
+           // LobbyUtils.sendGameJoinMessage(player.getName(), this.name);
+           // main.sendMessageToSMPPlayers(player.getName(), this.name);
+
         } catch (Exception ex) {
             player.sendMessage(ChatColor.RED + "There was a problem connecting you to that game.  Please try again later!");
         }
-
-
-
-
     }
 
     public void addPlayerToQueue(Player player, boolean sendMessage) {
@@ -522,6 +487,10 @@ public class Game {
             }
         }
         return  null;
+    }
+
+    public boolean hasSockName(String sockName) {
+       return lstSockNames.contains(sockName);
     }
 
     public String getGameName() {return name;}

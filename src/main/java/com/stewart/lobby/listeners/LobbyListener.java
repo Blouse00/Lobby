@@ -39,12 +39,17 @@ import org.bukkit.scoreboard.ScoreboardManager;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 // event for when player clicks on a sign
 public class LobbyListener implements Listener {
 
     private final Lobby lobby;
+    // per-player cooldown for the hotbar crate action (milliseconds)
+    private final Map<UUID, Long> lastHotbarCrateTimes = new ConcurrentHashMap<>();
 
     public LobbyListener(Lobby lobby) {
         this.lobby = lobby;
@@ -59,11 +64,19 @@ public class LobbyListener implements Listener {
         } else {
             System.out.println("player is op in creative mode");
         }*/
-
+        Player player = (Player) e.getWhoClicked();
         if (e.getWhoClicked().isOp() && e.getWhoClicked().getGameMode().equals(GameMode.CREATIVE)) {
             System.out.println("player is op in creative mode");
         } else {
-            e.setCancelled(true);
+            if (!lobby.isPlayerInKitPvP(player)) {
+                e.setCancelled(true);
+            } else {
+                // in kit pvp don't allow them to move the exit item
+                if (e.getRawSlot() == 44) {
+                    e.setCancelled(true);
+                }
+            }
+
         }
 
         if (e.getClickedInventory() == null) {
@@ -76,14 +89,13 @@ public class LobbyListener implements Listener {
                 .equals("" + ChatColor.DARK_GRAY + ChatColor.BOLD + "JOIN A GAME.") &&
                 e.getCurrentItem() != null) {
 
-            Player player = (Player) e.getWhoClicked();
             // the shop click function handles what to do depending on the slot that was clicked
             lobby.getGameManager().gameChosenFromInventory(player, e.getRawSlot());
             e.setCancelled(true);
         } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
                 .equals("" + ChatColor.DARK_GRAY + ChatColor.GOLD + "SUMO DIFFICULTY") &&
                 e.getCurrentItem() != null) {
-            Player player = (Player) e.getWhoClicked();
+
             switch (e.getRawSlot()) {
                 case 20:
                     // start noob sumo
@@ -152,7 +164,6 @@ public class LobbyListener implements Listener {
         } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
                 .equals("" + ChatColor.GOLD + ChatColor.BOLD + "JUMP INTO A GAME.") &&
                 e.getCurrentItem() != null) {
-            Player player = (Player) e.getWhoClicked();
             int slot = e.getRawSlot();
 
             if (slot == 20) {
@@ -179,8 +190,6 @@ public class LobbyListener implements Listener {
                 .equals("" + ChatColor.DARK_GRAY + ChatColor.BOLD + "ACCEPT THE RULES.") &&
                 e.getCurrentItem() != null) {
 
-            Player player = (Player) e.getWhoClicked();
-
             if (e.getRawSlot() == 20) {
                 System.out.println("rules not accepted :(");
                 // rules not accepted
@@ -200,8 +209,6 @@ public class LobbyListener implements Listener {
         } else if (ChatColor.translateAlternateColorCodes('&', e.getClickedInventory().getTitle())
                 .equals("" + ChatColor.GOLD + ChatColor.BOLD + "VOTE FOR BASHYBASHY") &&
                 e.getCurrentItem() != null) {
-
-            Player player = (Player) e.getWhoClicked();
             if (e.getRawSlot() == 20) {
                 // rules not accepted
                 player.closeInventory();
@@ -235,6 +242,10 @@ public class LobbyListener implements Listener {
     public void Chat(PlayerCommandPreprocessEvent event) {
         System.out.println("player command fired");
         Player player = event.getPlayer();
+        System.out.println(event.getMessage());
+        if (event.getMessage().toLowerCase().contains("register")) {
+            return;
+        }
         if (lobby.getRuleLobbyManager().containsPlayer(player.getUniqueId())) {
             System.out.println("cancel command");
             player.sendMessage(ChatColor.RED + " The rules must be accepted before you can use commands");
@@ -275,11 +286,40 @@ public class LobbyListener implements Listener {
         Player player = e.getPlayer();
         Action action = e.getAction();
 
+
+
         // prevent interaction with item frames
         if (e.getClickedBlock() instanceof ItemFrame && !e.getPlayer().isOp()) {
             e.setCancelled(true);
             return;
         }
+
+        // Action.PHYSICAL triggers when a player steps/lands on pressure plates or crops
+        if (e.getAction() == Action.PHYSICAL) {
+            Block block = e.getClickedBlock();
+
+            if (block == null) return;
+
+            // In 1.8, Farmland is called Material.SOIL
+            if (block.getType() == Material.SOIL) {
+                e.setCancelled(true);
+            }
+        }
+
+        if (e.getAction() == Action.LEFT_CLICK_BLOCK) {
+          //  System.out.println("left click air");
+            // Get the block that would actually be the fire (the space next to the clicked block)
+            Block potentialFire = e.getClickedBlock().getRelative(e.getBlockFace());
+
+            if (potentialFire.getType() == Material.FIRE) {
+                System.out.println("Fire clicked");
+                e.setCancelled(true);
+                // Optional: Update the block to ensure it doesn't visually disappear for the player
+                potentialFire.getState().update();
+            }
+        }
+
+
 
         if (e.getAction() == Action.PHYSICAL) {
             Block block = e.getClickedBlock();
@@ -331,6 +371,21 @@ public class LobbyListener implements Listener {
                 if (slot == 1) {
                     // open cosmetics menu
                     player.chat("/uc menu");
+                    e.setCancelled(true);
+                }
+                if (slot == 2) {
+                    // enforce a 4 second cooldown per player
+                    long now = System.currentTimeMillis();
+                    Long last = lastHotbarCrateTimes.get(player.getUniqueId());
+                    if (last == null || now - last >= 4000L) {
+                        lastHotbarCrateTimes.put(player.getUniqueId(), now);
+                        lobby.getLobbyManager().playerClickedHotbarCrate(player);
+                    } else {
+                        // Inform the player how many seconds remain on the cooldown
+                        long remainingMs = 4000L - (now - last);
+                        long secondsLeft = (remainingMs + 999) / 1000; // round up to nearest second
+                        player.sendMessage(ChatColor.RED + "Please wait " + secondsLeft + " second" + (secondsLeft == 1 ? "" : "s") + " before using that again.");
+                    }
                     e.setCancelled(true);
                 }
 
@@ -397,6 +452,12 @@ public class LobbyListener implements Listener {
                      //   System.out.println("NPC damaged");
                         event.setCancelled(true);
                         return;
+                    } else {
+                        // In sumo we don't want the bot taking damage.
+                       // double damage = ev.getDamage();
+                       // System.out.printf("NPC damaged in sumo, damage = " + damage);
+                        //System.out.printf("NPC health before damage = " + ((LivingEntity) event.getEntity()).getHealth());
+                        ev.setDamage(0.0);
                     }
                 }
             }
@@ -492,6 +553,8 @@ public class LobbyListener implements Listener {
         npcClickEvent(player, npc.getName());
     }
 
+
+
     @EventHandler
     public void onLeftClick(NPCLeftClickEvent event) {
         NPC npc = event.getNPC();
@@ -520,6 +583,21 @@ public class LobbyListener implements Listener {
                 player.sendMessage(line);
                 //  player.sendMessage("&9║  &cClick here: &e" + ChatColor.UNDERLINE + "https://discord.gg/Ypx4kTRbHp &9║");
             }
+        } else if (npcName.toLowerCase().contains("shop")) {
+            List<String> discordArray = new ArrayList<>();
+            discordArray.add(" ");
+            discordArray.add("                   &e&lVisit Our Shop");
+            discordArray.add("&e$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+            discordArray.add("&e$                                                                 $");
+            discordArray.add("&e$ &fClick here: &9&n https://bashybashy.craftingstore.net&e  $");
+            discordArray.add("&e$                                                                 $");
+            discordArray.add("&e$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+            discordArray.add(" ");
+            for (String line : discordArray) {
+                line = ChatColor.translateAlternateColorCodes('&', line);
+                player.sendMessage(line);
+                //  player.sendMessage("&9║  &cClick here: &e" + ChatColor.UNDERLINE + "https://discord.gg/Ypx4kTRbHp &9║");
+            }
 
         } else if (npcName.toLowerCase().contains("sumo bots")) {
             SumoDifficultyInventory sumoDifficultyInventory = new SumoDifficultyInventory();
@@ -530,13 +608,17 @@ public class LobbyListener implements Listener {
             VoteInventory voteInventory = new VoteInventory(lobby);
             player.openInventory(voteInventory.getVoteInventory(player));
         } else {
-            if (npcName.toLowerCase().contains("fiendfight")) {
-                GameInventory gameInventory = new GameInventory(lobby);
-                player.openInventory(gameInventory.getFiendFightInventory(player));
+            if (!ConfigManager.getIsFiendFightCombinedArenas()) {
+                if (npcName.toLowerCase().contains("fiendfight") && !ConfigManager.getIsFiendFightCombinedArenas()) {
+                    GameInventory gameInventory = new GameInventory(lobby);
+                    player.openInventory(gameInventory.getFiendFightInventory(player));
+                }
             }
-            if (npcName.toLowerCase().contains("bedwars")) {
-                GameInventory gameInventory = new GameInventory(lobby);
-                player.openInventory(gameInventory.getBedwarsInventory(player));
+            if (!ConfigManager.getIsBedwarsCombinedArenas()) {
+                if (npcName.toLowerCase().contains("bedwars") && !ConfigManager.getIsBedwarsCombinedArenas()) {
+                    GameInventory gameInventory = new GameInventory(lobby);
+                    player.openInventory(gameInventory.getBedwarsInventory(player));
+                }
             }
             Game game = lobby.getGameManager().getGameByNpcName(npcName);
             if (game == null) {
@@ -649,5 +731,19 @@ public class LobbyListener implements Listener {
             }
         }
         lobby.getGameManager().getMiniGameManger().entityDamageEntityFired(e);
+    }
+
+    @EventHandler
+    public void onPlayerCommandPreprocess(PlayerCommandPreprocessEvent e){
+        Player p = e.getPlayer();
+        System.out.println("test " + e.getMessage() + " from player " + p.getName());
+
+        if (lobby.isPlayerInKitPvP(p) || lobby.getGameManager().getMiniGameManger().isPlayerInSumoGame(p)) {
+            if (e.getMessage().toLowerCase().contains("uc menu")) {
+                System.out.println("cancelling uc menu command in minigame");
+                e.setCancelled(true);
+            }
+        }
+
     }
 }

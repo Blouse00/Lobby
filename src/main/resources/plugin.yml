@@ -4,6 +4,7 @@ main: com.stewart.lobby.Lobby
 depend: [Citizens, bb_api]
 depends: [PartyAndFriends]
 commands:
+  bbcrate:
   pw:
   fly:
   rankgiveaway:

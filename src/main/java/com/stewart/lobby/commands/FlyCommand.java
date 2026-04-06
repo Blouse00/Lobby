@@ -24,19 +24,27 @@ public class FlyCommand  implements CommandExecutor {
         if(commandSender instanceof Player) {
             Player player = (Player) commandSender;
             // check player permissions
-            if (!player.hasPermission("command.fly")) {
+            if (!player.hasPermission("command.fly") && !player.hasPermission("rank.fly")) {
                 player.sendMessage("You do not have permission for that command.");
                 return true;
             }
 
             // get the target (either self, or another online player)
+            // but only allow targeting another player if they have the command.fly permission,
+            // not the one given by rank
             Player target = player;
-            if (args.length > 0) {
+            if (args.length > 0 && player.hasPermission("command.fly")) {
                 target = Bukkit.getPlayerExact(args[0]);
                 if (target == null) {
                     player.sendMessage("Player not found/online.");
                     return true;
                 }
+            }
+
+            if (!player.hasPermission("command.fly") && (main.isPlayerInKitPvP(player) ||
+                    main.getGameManager().getMiniGameManger().isPlayerInSumoGame(player))) {
+                player.sendMessage(ChatColor.RED + "You cannot toggle fly mode while in a minigame.");
+                return true;
             }
 
             // find if target is already in flight mode or not and invert it.

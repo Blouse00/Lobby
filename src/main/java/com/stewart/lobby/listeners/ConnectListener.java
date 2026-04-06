@@ -5,6 +5,7 @@ import com.stewart.lobby.Lobby;
 
 import com.stewart.lobby.manager.ConfigManager;
 import com.stewart.lobby.utils.LobbyUtils;
+import com.stewart.lobby.utils.SkinUtils;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.ViaAPI;
 import org.bukkit.Bukkit;
@@ -13,15 +14,19 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import redis.clients.jedis.JedisPooled;
 
 import java.util.UUID;
 
 
 public class ConnectListener implements Listener {
     private Lobby lobby;
+    private SkinUtils skinUtils;
 
     public ConnectListener(Lobby lobby) {
+
         this.lobby = lobby;
+        this.skinUtils = new SkinUtils(lobby);
     }
 
     // when a player joins the server tp them to the main spawn location.
@@ -41,6 +46,12 @@ public class ConnectListener implements Listener {
         }
 
 
+
+        // clear any previous skin changes after a short delay to allow for any
+        Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, () -> skinUtils.clearSkin(player), 30);
+        Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, () -> removeSkinsPermission( player), 20L);
+
+
         Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, new Runnable() {
             @Override
             public void run() {
@@ -54,8 +65,6 @@ public class ConnectListener implements Listener {
             ViaAPI api = Via.getAPI(); // Get the API
             int version = api.getPlayerVersion(player); // Get the protocol version
             String strVersion = LobbyUtils.getMinecraftVersionFromVIAProtocol(version);
-          //  Bukkit.getScheduler().scheduleSyncDelayedTask(lobby, () -> addAnticheatBypassPermission(version == 770, player), 20L);
-
 
             String versionMessage = "";
             if (strVersion.equals("")) {
@@ -68,6 +77,12 @@ public class ConnectListener implements Listener {
                         .getTextChannelById(ConfigManager.getDiscordChannel())
                         .sendMessage(versionMessage).queue();
             }
+        }
+    }
+
+    private void removeSkinsPermission(Player player) {
+        if (player != null && player.hasPermission("skinsrestorer.command.set")) {
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " permission unset skinsrestorer.command.set");
         }
     }
 
@@ -96,6 +111,7 @@ public class ConnectListener implements Listener {
         UUID uuid = e.getPlayer().getUniqueId();
         lobby.getGameManager().removePlayerFromQueues(uuid, null);
         lobby.getRuleLobbyManager().removePlayer(uuid);
+        lobby.getGameManager().getMiniGameManger().playerLeftServer(e.getPlayer());
         e.setQuitMessage("");
     }
 

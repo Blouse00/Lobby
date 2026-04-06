@@ -1,5 +1,6 @@
 package com.stewart.lobby.instances;
 import com.stewart.lobby.Lobby;
+import com.stewart.lobby.manager.ConfigManager;
 
 import java.util.*;
 
@@ -95,9 +96,18 @@ public class AutoGameSelector {
             // should sort the list and put the one with the highest score first
            // lst.sort(new GameComparator());
 
+            List<String> definedOrder = Arrays.asList("fiend_fight_solo","fiend_fight_one_team","fiend_fight_duo","fiend_fight_quad", "Assault_Course", "Full_Iron_Armour", "Icewars", "BETA_Icewars", "Bedwars_solo", "Bedwars_duos", "Bedwars_quads");
+            if (ConfigManager.getIsBedwarsCombinedArenas()) {
+                definedOrder = Arrays.asList("fiend_fight_solo","fiend_fight_one_team","fiend_fight_duo","fiend_fight_quad", "Assault_Course", "Full_Iron_Armour", "Icewars", "BETA_Icewars", "Bedwars");
+            }
+            if (ConfigManager.getIsFiendFightCombinedArenas()) {
+                definedOrder = Arrays.asList("fiend_fight", "Assault_Course", "Full_Iron_Armour", "Icewars", "BETA_Icewars", "Bedwars");
+            }
+
             // should sort by score then my defined order for the different game types
+            List<String> finalDefinedOrder = definedOrder;
             lst.sort(Comparator.comparing(GameForAutoJoin::getScore).reversed()
-                    .thenComparing(c -> definedOrder.indexOf(c.getName())));
+                    .thenComparing(c -> finalDefinedOrder.indexOf(c.getName())));
             // check the sorting
            /* int j =0;
             for (GameForAutoJoin game : lst) {
@@ -108,8 +118,6 @@ public class AutoGameSelector {
         }
     }
 
-    List<String> definedOrder = // define your custom order
-            Arrays.asList("fiend_fight_solo","fiend_fight_one_team","fiend_fight_duo","fiend_fight_quad", "Assault_Course", "Full_Iron_Armour", "Icewars", "BETA_Icewars", "Bedwars_solo", "Bedwars_duos", "Bedwars_quads");
 
     private int getGameMinPlayers(String gameName) {
         switch (gameName.toLowerCase()) {

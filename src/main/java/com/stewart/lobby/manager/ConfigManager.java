@@ -10,12 +10,27 @@ import java.util.List;
 // simple config manager all it does is get the server spawn location from the config file
 public class ConfigManager {
 
+
     private static FileConfiguration config;
+    private static boolean shopEnabled;
+    private static boolean votesEnabled;
 
     public static void setupConfig(Lobby lobby) {
         ConfigManager.config = lobby.getConfig();
         lobby.saveDefaultConfig();
+        shopEnabled = config.getBoolean("shop.enable");
+        votesEnabled = config.getBoolean("votes.enable");
+        System.out.println("Shop enabled: " + shopEnabled);
     }
+
+    public static boolean isShopEnabled() {
+        return shopEnabled;
+    }
+
+    public static boolean isVotesEnabled() {
+        return votesEnabled;
+    }
+
 
     public static boolean getAnnounceGameJoin() {
         return config.getBoolean("announce-game-join");
@@ -106,9 +121,11 @@ public class ConfigManager {
         return config.getString("discord-npc-texture");
     }
 
-    public  static String getDiscordSkinSignature() {
-        return config.getString("discord-npc-signature");
-    }
+    public  static String getDiscordSkinSignature() { return config.getString("discord-npc-signature");}
+
+    public  static String getShopSkinTexture() {return config.getString("shop-npc-texture");}
+
+    public  static String getShopSkinSignature() {return config.getString("shop-npc-signature");}
 
     public  static String getSumoSkinTexture() {
         return config.getString("sumo-npc-texture");
@@ -128,6 +145,14 @@ public class ConfigManager {
 
     public static List<String> getPostRules() {
         return config.getStringList("rules-post");
+    }
+
+    public static boolean getIsBedwarsCombinedArenas() {
+        return config.getBoolean("bedwars-combined-arenas");
+    }
+
+    public static boolean getIsFiendFightCombinedArenas() {
+        return config.getBoolean("fiend-fight-combined-arenas");
     }
 
 

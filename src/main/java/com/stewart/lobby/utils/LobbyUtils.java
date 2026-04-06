@@ -17,6 +17,8 @@ import org.bukkit.scoreboard.ScoreboardManager;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class LobbyUtils {
 
@@ -31,7 +33,18 @@ public class LobbyUtils {
 
     }
 
+
+    private static final Map<String, Long> lastJoinMessageTimestamps = new ConcurrentHashMap<>();
+
+
     public static void sendGameJoinMessage(String playerName, String gameName) {
+        long now = System.currentTimeMillis();
+        Long last = lastJoinMessageTimestamps.get(playerName);
+        if (last != null && (now - last) < 3000L) {
+            return; // message sent for this player within last 3 seconds; skip
+        }
+        lastJoinMessageTimestamps.put(playerName, now);
+
         String broadCastMessage = ChatColor.DARK_BLUE + "■" + ChatColor.GOLD + "BashyBashy" + ChatColor.DARK_BLUE + "■ " +
                 ChatColor.GREEN + playerName + ChatColor.DARK_BLUE + " ▶▶▶ " + ChatColor.GREEN + "Joined " +
                 ChatColor.DARK_BLUE + "▶▶▶ " + ChatColor.LIGHT_PURPLE + gameName;

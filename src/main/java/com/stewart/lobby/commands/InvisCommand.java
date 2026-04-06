@@ -21,7 +21,7 @@ public class InvisCommand implements CommandExecutor {
     public boolean onCommand(CommandSender commandSender, Command command, String s, String[] args) {
 
         if(commandSender instanceof Player player) {
-            if ( player.hasPermission("group.g500") || player.hasPermission("group.g600")) {
+            if ( player.hasPermission("rank.invis")) {
                 main.getLobbyManager().playerUsedInvisCommand(player);
             } else {
                 player.sendMessage(ChatColor.RED + "You do not have permission for that command.");

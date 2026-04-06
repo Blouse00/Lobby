@@ -2,6 +2,9 @@ package com.stewart.lobby.manager;
 
 import com.gmail.tracebachi.SockExchange.Spigot.SockExchangeApi;
 import com.gmail.tracebachi.SockExchange.SpigotServerInfo;
+import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.properties.Property;
+import com.mojang.util.UUIDTypeAdapter;
 import com.stewart.lobby.Lobby;
 import com.stewart.lobby.instances.AutoGameSelector;
 import com.stewart.lobby.instances.Game;
@@ -20,7 +23,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import javax.net.ssl.HttpsURLConnection;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URL;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -37,7 +45,8 @@ public class GameManager {
     // this will be used to store the players current server and the time they were sent there
     // to be used for reconnecting them if they disconnect
     private final HashMap<UUID, PlayerServerInfo> mapPlayerServerInfo = new HashMap<>();
-    private final String[]  arrAllGameSubtypes = {"assault", "smp", "fia", "icewars"};
+  //  String[]  arrAllGameSubtypes = {"assault", "smp", "fia", "icewars"};
+    private List<String> arrAllGameSubtypes = new ArrayList<>();
   //  private final String[]  arrAllGameSubtypes = {"assault", "smp", "fia", "icewars", "traps"};
     private final String[]  arrBWSubtypes = {"bedwars_solo", "bedwars_duo", "bedwars_quad"};
     private final String[]  arrFFSubtypes = {"fiend_fight_solo",  "fiend_fight_duo",  "fiend_fight_quad", "fiend_fight_one_team"};
@@ -47,6 +56,8 @@ public class GameManager {
         File file = new File(main.getDataFolder(), "games.yml");
         gameConfig =  YamlConfiguration.loadConfiguration(file);
         miniGameManger = new MiniGameManger(gameConfig, lobby);
+        fillAllGameSubtypes();
+
         // when starting the server for the first time poll all the games in the games.yml file
         // responses are handled separately
         // need a delay here otherwise the sockexchangeApi will be null - needs a moment as the plugin has just started
@@ -54,13 +65,33 @@ public class GameManager {
             @Override
             public void run() {
                 deSpawnNPCS();
-                setUpBedwars();
+                if (!ConfigManager.getIsBedwarsCombinedArenas()) {
+                    setUpBedwars();
+                }
+                if (!ConfigManager.getIsFiendFightCombinedArenas()) {
+                    setUpFiendFight();
+                }
                 setUpGames();
-                setUpFiendFight();
                 requestGameStatusForAllGames();
             }
         }, 60L);
         Bukkit.getScheduler().scheduleSyncRepeatingTask(main, this::CheckAutoJoinPlayers, 60, 20);
+    }
+
+    private void fillAllGameSubtypes() {
+        arrAllGameSubtypes = new ArrayList<>();
+        //  String[]  arrAllGameSubtypes = {"assault", "smp", "fia", "icewars"};
+        arrAllGameSubtypes.add("assault");
+        arrAllGameSubtypes.add("smp");
+        arrAllGameSubtypes.add("fia");
+        arrAllGameSubtypes.add("icewars");
+        arrAllGameSubtypes.add("zombies");
+        if (ConfigManager.getIsBedwarsCombinedArenas()) {
+            arrAllGameSubtypes.add("bedwars");
+        }
+        if (ConfigManager.getIsFiendFightCombinedArenas()) {
+            arrAllGameSubtypes.add("fiend_fight");
+        }
     }
 
     private void CheckAutoJoinPlayers() {
@@ -125,6 +156,11 @@ public class GameManager {
         for (String s : arrAllGameSubtypes) {
             System.out.println("game name " + s);
             // eg 'bedwars_solo'
+            // check if the config section exists
+            if (!gameConfig.contains(s)) {
+                System.out.println("game config section not found for " + s);
+                continue;
+            }
             String gameName = gameConfig.getString( s + ".name");
             Material material = Material.DIAMOND_BLOCK;
             int inventorySocket = -1;
@@ -135,7 +171,10 @@ public class GameManager {
             addGameToNameSlotMap(s, inventorySocket);
             Game game   = new Game(main, gameName,  material, inventorySocket );
             spawnGameNPCs(s, gameName);
-
+            for (String s1 : gameConfig.getConfigurationSection(s + ".servers").getKeys(false)) {
+                String sockName = gameConfig.getString(s + ".servers." + s1 + ".sockName");
+                game.addSockName(sockName);
+            }
             gameList.add(game);
         }
     }
@@ -168,6 +207,7 @@ public class GameManager {
     }
 
     private void spawnGameNPCs(String configName, String npcName) {
+        System.out.println("spawning npcs for " + configName);
         String texture = gameConfig.getString(configName + ".npc-skin-texture");
         String signature = gameConfig.getString(configName + ".npc-skin-signature");
         String nameColour = gameConfig.getString(configName + ".npc-name-colour");
@@ -233,6 +273,7 @@ public class GameManager {
 
         for (String s : arrAllGameSubtypes) {
             for (String s1 : gameConfig.getConfigurationSection(s + ".servers").getKeys(false)) {
+             //   String gameName = gameConfig.getString( s + ".name");
                 String sockName = gameConfig.getString(s + ".servers." + s1 + ".sockName");
                 String inputString = "Lobby.request-status." + sockName + "." + s;
                 Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> requestGameStatus(sockExchangeApi, sockName, inputString), i);
@@ -240,21 +281,25 @@ public class GameManager {
             }
         }
 
-        for (String s : arrBWSubtypes) {
-            for (String s1 : gameConfig.getConfigurationSection("bedwars.servers").getKeys(false)) {
-                String sockName = gameConfig.getString("bedwars.servers." + s1 + ".sockName");
-                String inputString = "Lobby.request-status." + sockName + "." + s;
-                Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> requestGameStatus(sockExchangeApi, sockName, inputString), i);
-                i += 10;
+        if (!ConfigManager.getIsBedwarsCombinedArenas()) {
+            for (String s : arrBWSubtypes) {
+                for (String s1 : gameConfig.getConfigurationSection("bedwars.servers").getKeys(false)) {
+                    String sockName = gameConfig.getString("bedwars.servers." + s1 + ".sockName");
+                    String inputString = "Lobby.request-status." + sockName + "." + s;
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> requestGameStatus(sockExchangeApi, sockName, inputString), i);
+                    i += 10;
+                }
             }
         }
 
-        for (String s : arrFFSubtypes) {
-            for (String s1 : gameConfig.getConfigurationSection("monster.servers").getKeys(false)) {
-                String sockName = gameConfig.getString("monster.servers." + s1 + ".sockName");
-                String inputString = "Lobby.request-status." + sockName + "." + s;
-                Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> requestGameStatus(sockExchangeApi, sockName, inputString), i);
-                i += 10;
+        if (!ConfigManager.getIsFiendFightCombinedArenas()) {
+            for (String s : arrFFSubtypes) {
+                for (String s1 : gameConfig.getConfigurationSection("monster.servers").getKeys(false)) {
+                    String sockName = gameConfig.getString("monster.servers." + s1 + ".sockName");
+                    String inputString = "Lobby.request-status." + sockName + "." + s;
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(main, () -> requestGameStatus(sockExchangeApi, sockName, inputString), i);
+                    i += 10;
+                }
             }
         }
     }
@@ -280,49 +325,81 @@ public class GameManager {
         }
     }
 
+
+
      public void updateGameServer(String sockName,  String status, int currentPlayers, int maxPlayers, String gameType) {
-        Game game = null;
-          System.out.printf("update gane server called " + sockName + " " + gameType);
-        if (sockName.startsWith("assault")) {
-        //     System.out.println("Updating assault course server object");
-            game = getGameByName("Assault_Course");
+        Game game;
+        if (ConfigManager.getIsFiendFightCombinedArenas() && ConfigManager.getIsBedwarsCombinedArenas()) {
+            game = getGameBySockName(sockName); // more reliable way as does not rely on getGameBy name and having the
+            // game name in code which defies the point of also having it in the config file
+        } else {
+            System.out.println("getting game the old way for sock name: " + sockName + ", game type: " + gameType);
+            game = getGameByNameOldWay(sockName, gameType);
         }
-        if (sockName.startsWith("fulliron")) {
-        //   System.out.println("Updating full iron armour server object");
-            game = getGameByName("Full_Iron_Armour");
-        }
-        if (sockName.startsWith("icewars")) {
-          //  System.out.println("Updating icewars server object");
-            game = getGameByName("BETA_Icewars");
-        }
-        if (sockName.startsWith("smp")) {
-          //  System.out.println("Updating smp server object");
-            game = getGameByName("1.8 SMP");
-        }
-        if (sockName.startsWith("creative")) {
-          //  System.out.println("Updating creative server object");
-            game = getGameByName("creative");
-        }
-         if (sockName.startsWith("man_trap")) {
-             System.out.println("Updating man_trap server object");
-             game = getGameByName("Traps game");
-         }
-        if (sockName.startsWith("monster")) {
-           // System.out.println("Updating fiend fight " + gameType + " server object");
-            game = getGameByName("fiend_fight_" + gameType);
-        }
-         if (sockName.startsWith("bedwars")) {
-           //  System.out.println("Updating bedwars " + gameType + " server object");
-             game = getGameByName("bedwars_" + gameType);
-         }
         if (game != null) {
           //  System.out.println("game found sock name: " + sockName + ", status " + status);
             game.setMaxPlayers(maxPlayers);
             game.updateGameServer(sockName, status, currentPlayers, maxPlayers);
             game.checkQueue();
         } else {
-           // System.out.println("UpdateGameServer game not found " + sockName);
+            System.out.println("UpdateGameServer game not found " + sockName);
         }
+    }
+
+    private Game getGameByNameOldWay(String sockName, String gameType) {
+        Game game = null;
+        System.out.printf("update gane server called " + sockName + " " + gameType);
+        if (sockName.startsWith("assault")) {
+            //     System.out.println("Updating assault course server object");
+            game = getGameByName("Assault_Course");
+        }
+        if (sockName.startsWith("fulliron")) {
+            //   System.out.println("Updating full iron armour server object");
+            game = getGameByName("Full_Iron_Armour");
+        }
+        if (sockName.startsWith("zombies")) {
+            //   System.out.println("Updating full iron armour server object");
+            game = getGameByName("Zombie_Infection");
+        }
+        if (sockName.startsWith("icewars")) {
+            //  System.out.println("Updating icewars server object");
+            game = getGameByName("BETA_Icewars");
+        }
+        if (sockName.startsWith("smp")) {
+            //  System.out.println("Updating smp server object");
+            game = getGameByName("1.8 SMP");
+        }
+        if (sockName.startsWith("creative")) {
+            //  System.out.println("Updating creative server object");
+            game = getGameByName("creative");
+        }
+        if (sockName.startsWith("man_trap")) {
+            System.out.println("Updating man_trap server object");
+            game = getGameByName("Traps game");
+        }
+        if (sockName.startsWith("monster")) {
+            // System.out.println("Updating fiend fight " + gameType + " server object");
+            game = getGameByName("fiend_fight_" + gameType);
+        }
+        if (sockName.startsWith("bedwars")) {
+            if (ConfigManager.getIsBedwarsCombinedArenas()) {
+                System.out.println("Updating combined bedwars server object");
+                game = getGameByName("Bedwars");
+            } else {
+                System.out.println("Updating bedwars " + gameType + " server object");
+                game = getGameByName("Bedwars_" + gameType);
+            }
+        }
+        if (sockName.startsWith("monster")) {
+            if (ConfigManager.getIsFiendFightCombinedArenas()) {
+                System.out.println("Updating combined fiend-fight server object");
+                game = getGameByName("fiend_fight");
+            } else {
+                System.out.println("Updating Fiend fight " + gameType + " server object");
+                game = getGameByName("fiend_fight_" + gameType);
+            }
+        }
+        return  game;
     }
 
     // remove player from all game queues except the one passed
@@ -349,6 +426,18 @@ public class GameManager {
         for (Game game : gameList) {
           //  System.out.println("------------ get game by name looping through existing games - " + game.getGameName());
             if (game.getGameName().equalsIgnoreCase(name)) {
+                return game;
+            }
+        }
+        return  null;
+    }
+
+    public Game getGameBySockName(String sockName) {
+        //   System.out.println("getGameByName called with name: " + name);
+
+        for (Game game : gameList) {
+            //  System.out.println("------------ get game by name looping through existing games - " + game.getGameName());
+            if (game.hasSockName(sockName)) {
                 return game;
             }
         }
@@ -443,7 +532,13 @@ public class GameManager {
     // code to send player to the game
     private void addGameToNameSlotMap(String name, int slot) {
         System.out.println("Adding game to mapGameNameSlot");
+        // name is top level config name eg 'assault' 'smp' 'fia' 'icewars'
+        // put the Game name from the config into the map with the slot
+        // not great but will do for now
         switch (name){
+            case("zombies"):
+                mapGameNameSlot.put("Zombie_Infection", slot);
+                break;
             case("assault"):
                 mapGameNameSlot.put("Assault_Course", slot);
                 break;
@@ -463,6 +558,10 @@ public class GameManager {
                 mapGameNameSlot.put("Icewars", slot);
                 mapGameNameSlot.put("BETA_Icewars", slot);
                 break;
+            case("Bedwars"):
+                System.out.println("Adding bedwars to mapGameNameSlot");
+                mapGameNameSlot.put("Bedwars", slot);
+                break;
             case("Bedwars_solo"):
                 mapGameNameSlot.put("Bedwars_solo", slot);
                 break;
@@ -471,6 +570,9 @@ public class GameManager {
                 break;
             case("Bedwars_quad"):
                 mapGameNameSlot.put("Bedwars_quad", slot);
+                break;
+            case("fiend_fight"):
+                mapGameNameSlot.put("fiend_fight", slot);
                 break;
             case("fiend_fight_solo"):
                 mapGameNameSlot.put("fiend_fight_solo", slot);
@@ -528,5 +630,6 @@ public class GameManager {
     }
 
     public MiniGameManger getMiniGameManger() { return miniGameManger; }
+
 }
 

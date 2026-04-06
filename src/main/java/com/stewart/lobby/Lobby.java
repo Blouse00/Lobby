@@ -87,6 +87,7 @@ public final class Lobby extends JavaPlugin {
         Bukkit.getWorld("world").setStorm(false);
         // Need this to be able to move players to another server
         this.getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        getServer().getMessenger().registerOutgoingPluginChannel(this, "zombie:skin");
 
         // the listener for players connecting to this server
         Bukkit.getPluginManager().registerEvents(new ConnectListener(this), this);
@@ -95,12 +96,14 @@ public final class Lobby extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new LobbyListener(this), this);
 
 
+
         // register the pw command class
         getCommand("pw").setExecutor(new LobbyCommand(this));
         getCommand("fly").setExecutor(new FlyCommand(this));
         getCommand("invis").setExecutor(new InvisCommand(this));
         getCommand("speed").setExecutor(new SpeedCommand(this));
         getCommand("jump").setExecutor(new JumpCommand(this));
+        getCommand("bbcrate").setExecutor(new BBCrate(this));
 
         // this is used to get messages from the game server for the purrpose of updating the sign posts
         sockExchangeApi = SockExchangeApi.instance();
@@ -132,8 +135,8 @@ public final class Lobby extends JavaPlugin {
                         // for monster the same sockname could have multiple game types (quad solo duo)
                         // will pass sockname status currnetPlayers maxPlayers, gameType
 
-                        //     System.out.println("/****************** " + arrReceived[0] + " " +  arrReceived[2] + " " +
-                        //             Integer.parseInt(arrReceived[3]) + " " + Integer.parseInt(arrReceived[4]) + " " + arrReceived[5]);
+                            System.out.println("/****************** " + arrReceived[0] + " " +  arrReceived[2] + " " +
+                                     Integer.parseInt(arrReceived[3]) + " " + Integer.parseInt(arrReceived[4]) + " " + arrReceived[5]);
                         gameManager.updateGameServer(arrReceived[0], arrReceived[2],
                                 Integer.parseInt(arrReceived[3]), Integer.parseInt(arrReceived[4]), arrReceived[5]);
                     } else {
@@ -143,7 +146,11 @@ public final class Lobby extends JavaPlugin {
                     }
 
                 } else if (arrReceived[1].equals("player-rejoining")) {
-                    lobbyManager.PlayerReJoinGameServer(arrReceived[2]);
+                    // wait 1/2 second before rejoining to allow time for player to fully connect to this server
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(this, () -> {
+                        lobbyManager.PlayerReJoinGameServer(arrReceived[2]);
+                    }, 10);
+
 
                 }
             } catch (Exception ex) {
@@ -230,7 +237,14 @@ public final class Lobby extends JavaPlugin {
 
     public void sendPlayerToKitPvP(Player player) {
         if (kitPvP != null) {
+            // make sure the player can not fly and is not flying when they join the game
+            player.setAllowFlight(false);
+            player.setFlying(false);
+            // remove any potion effects from the player when they join the game
+            player.getActivePotionEffects().forEach(effect -> player.removePotionEffect(effect.getType()));
+
             kitPvP.getArena().addPlayerToKitPvP(player);
+            player.performCommand("uc clear");
             LobbyUtils.sendGameJoinMessage(player.getName(), "KitPvP");
             if (jda != null) {
                 jda.getGuildById(ConfigManager.getDiscordServer())
